@@ -1,4 +1,4 @@
-"""Ambiente Gymnasium para Pokemon Red/Blue no PyBoy."""
+"""Ambiente Gymnasium generico para fases de Pokemon Red."""
 
 from __future__ import annotations
 
@@ -9,44 +9,46 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from poke_ai_v3.actions import ACTIONS, action_name
-from poke_ai_v3.memory import EVENT_BITS, GameSnapshot, PokemonRedMemoryReader
-from poke_ai_v3.rewards import ProgressReward, RewardConfig
+from envs.step_handler import ACTIONS, StepHandler, action_name
+from envs.success_conditions import SuccessChecker
+from memory.ram_map import EVENT_BITS, GameSnapshot, PokemonRedRamReader
+from phases.phase_config import PhaseConfig, get_phase
+from rewards import PhaseReward, make_reward
 
 Observation = np.ndarray | dict[str, np.ndarray]
 
 
 class PokemonRedEnv(gym.Env):
-    """Ambiente de RL que controla Pokemon Red/Blue por botoes de Game Boy."""
-
     metadata = {"render_modes": ["rgb_array"], "render_fps": 60}
 
     def __init__(
         self,
         rom_path: str | Path,
+        phase: str | PhaseConfig,
+        states_dir: str | Path = "states",
         state_path: str | Path | None = None,
         symbols_path: str | Path | None = None,
         window: str = "null",
         action_frames: int = 12,
-        warmup_frames: int = 120,
-        max_steps: int | None = None,
-        observation_mode: str = "screen",
+        warmup_frames: int = 0,
+        observation_mode: str = "multi",
         frame_stacks: int = 3,
-        coords_pad: int = 12,
-        reward_config: RewardConfig | None = None,
+        reward_scale: float = 1.0,
+        max_no_progress_steps: int = 200,
         render_mode: str | None = None,
     ) -> None:
         super().__init__()
         self.rom_path = Path(rom_path)
-        self.state_path = Path(state_path) if state_path else None
+        self.phase = get_phase(phase) if isinstance(phase, str) else phase
+        self.states_dir = Path(states_dir)
+        self.state_path = Path(state_path) if state_path else self.states_dir / self.phase.state
         self.symbols_path = Path(symbols_path) if symbols_path else None
         self.window = window
         self.action_frames = action_frames
         self.warmup_frames = warmup_frames
-        self.max_steps = max_steps
         self.observation_mode = observation_mode
         self.frame_stacks = frame_stacks
-        self.coords_pad = coords_pad
+        self.coords_pad = 12
         self.enc_freqs = 8
         self.render_mode = render_mode
 
@@ -54,8 +56,14 @@ class PokemonRedEnv(gym.Env):
         self.observation_space = self._build_observation_space()
 
         self._pyboy: Any | None = None
-        self._memory: PokemonRedMemoryReader | None = None
-        self._reward = ProgressReward(reward_config)
+        self._reader: PokemonRedRamReader | None = None
+        self._step_handler: StepHandler | None = None
+        self._reward: PhaseReward = make_reward(
+            self.phase,
+            scale=reward_scale,
+            max_no_progress_steps=max_no_progress_steps,
+        )
+        self._success: SuccessChecker | None = None
         self._step_count = 0
         self._seen_coords: dict[tuple[int, int, int], int] = {}
         self._recent_screens = np.zeros((self.frame_stacks, 72, 80), dtype=np.uint8)
@@ -75,82 +83,98 @@ class PokemonRedEnv(gym.Env):
             self._pyboy.tick(self.warmup_frames, True, False)
 
         snapshot = self._snapshot()
+        self._success = SuccessChecker(self.phase, snapshot)
+        self._reward.reset(snapshot)
         self._seen_coords = {}
         self._recent_screens = np.zeros((self.frame_stacks, 72, 80), dtype=np.uint8)
         self._recent_actions = np.zeros((self.frame_stacks,), dtype=np.int64)
         self._record_position(snapshot)
-        self._reward.reset(snapshot)
-        return self._observation(snapshot), {"snapshot": snapshot.to_dict()}
+        return self._observation(snapshot), self._info(snapshot, reward=0.0, success=False)
 
     def step(self, action: int) -> tuple[Observation, float, bool, bool, dict[str, Any]]:
-        button = action_name(action)
-        if button != "noop":
-            self._pyboy.button(button, self.action_frames)
+        if self._step_handler is None:
+            raise RuntimeError("Ambiente ainda nao foi inicializado. Chame reset() primeiro.")
 
-        running = self._pyboy.tick(self.action_frames, True, False)
-        snapshot = self._snapshot()
+        running = self._step_handler.run(action)
         self._step_count += 1
+
+        snapshot = self._snapshot()
         self._record_position(snapshot)
         self._update_recent_actions(action)
-        reward, terminated, truncated, reward_info = self._reward.step(snapshot)
 
-        info: dict[str, Any] = {
-            "action": button,
-            "step_count": self._step_count,
-            "seen_coords": len(self._seen_coords),
-            "snapshot": snapshot.to_dict(),
-            **reward_info,
-        }
-        if self.max_steps is not None and self._step_count >= self.max_steps:
-            truncated = True
-        if not running:
-            terminated = True
+        reward, no_progress_timeout, reward_terms = self._reward.step(snapshot)
+        success = self._success.check(snapshot) if self._success else False
+        terminated = success or not running
+        truncated = self._step_count >= self.phase.max_steps or no_progress_timeout
+
+        info = self._info(snapshot, reward=reward, success=success)
+        info.update(reward_terms)
+        info["action"] = action_name(action)
+        info["no_progress_timeout"] = no_progress_timeout
 
         return self._observation(snapshot), float(reward), terminated, truncated, info
 
     def render(self) -> np.ndarray:
+        if self._pyboy is None:
+            raise RuntimeError("Ambiente ainda nao foi inicializado. Chame reset() primeiro.")
         return np.asarray(self._pyboy.screen.ndarray[:, :, :3]).copy()
 
     def close(self) -> None:
         if self._pyboy is not None:
             self._pyboy.stop(save=False)
             self._pyboy = None
-            self._memory = None
+            self._reader = None
+            self._step_handler = None
+
+    def save_state(self, path: str | Path) -> None:
+        if self._pyboy is None:
+            raise RuntimeError("Ambiente ainda nao foi inicializado. Chame reset() primeiro.")
+        state_path = Path(path)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        with state_path.open("wb") as state_file:
+            self._pyboy.save_state(state_file)
 
     def _restart_emulator(self) -> None:
         self.close()
-        if not self.rom_path.exists():
-            raise FileNotFoundError(f"ROM nao encontrada: {self.rom_path}")
-        if self.state_path and not self.state_path.exists():
-            raise FileNotFoundError(f"Estado nao encontrado: {self.state_path}")
-        if self.symbols_path and not self.symbols_path.exists():
-            raise FileNotFoundError(f"Arquivo de simbolos nao encontrado: {self.symbols_path}")
+        self._check_paths()
 
         try:
             from pyboy import PyBoy
         except ImportError as exc:
-            raise RuntimeError("Instale as dependencias com: python -m pip install -e .") from exc
+            raise RuntimeError("Instale as dependencias com: python -m pip install -r requirements.txt") from exc
 
-        kwargs: dict[str, Any] = {
-            "window": self.window,
-            "sound_emulated": False,
-        }
+        kwargs: dict[str, Any] = {"window": self.window, "sound_emulated": False}
         if self.symbols_path:
             kwargs["symbols"] = str(self.symbols_path)
 
         self._pyboy = PyBoy(str(self.rom_path), **kwargs)
         self._pyboy.set_emulation_speed(0)
 
-        if self.state_path:
-            with self.state_path.open("rb") as state_file:
-                self._pyboy.load_state(state_file)
+        with self.state_path.open("rb") as state_file:
+            self._pyboy.load_state(state_file)
 
-        self._memory = PokemonRedMemoryReader(self._pyboy)
+        self._reader = PokemonRedRamReader(self._pyboy)
+        self._step_handler = StepHandler(
+            self._pyboy,
+            action_frames=self.action_frames,
+            render=self.window != "null",
+        )
+
+    def _check_paths(self) -> None:
+        if not self.rom_path.exists():
+            raise FileNotFoundError(f"ROM nao encontrada: {self.rom_path}")
+        if not self.state_path.exists():
+            raise FileNotFoundError(
+                f"State da fase nao encontrado: {self.state_path}. "
+                "Use scripts/manual_control.py para criar esse state primeiro."
+            )
+        if self.symbols_path and not self.symbols_path.exists():
+            raise FileNotFoundError(f"Arquivo de simbolos nao encontrado: {self.symbols_path}")
 
     def _snapshot(self) -> GameSnapshot:
-        if self._memory is None:
+        if self._reader is None:
             raise RuntimeError("Ambiente ainda nao foi inicializado. Chame reset() primeiro.")
-        return self._memory.snapshot()
+        return self._reader.snapshot()
 
     def _build_observation_space(self) -> spaces.Space:
         if self.observation_mode == "screen":
@@ -200,14 +224,12 @@ class PokemonRedEnv(gym.Env):
     def _screen_observation(self) -> np.ndarray:
         screen = np.asarray(self._pyboy.screen.ndarray[:, :, :3])
         grayscale = screen.mean(axis=2).astype(np.uint8)
-        downsampled = grayscale[::2, ::2]
-        return downsampled[np.newaxis, :, :].copy()
+        return grayscale[::2, ::2][np.newaxis, :, :].copy()
 
     def _record_position(self, snapshot: GameSnapshot) -> None:
         if snapshot.in_battle:
             return
-        key = self._position_key(snapshot)
-        self._seen_coords[key] = self._seen_coords.get(key, 0) + 1
+        self._seen_coords[snapshot.position] = self._seen_coords.get(snapshot.position, 0) + 1
 
     def _local_explore_map(self, snapshot: GameSnapshot) -> np.ndarray:
         center_y = snapshot.y
@@ -235,6 +257,13 @@ class PokemonRedEnv(gym.Env):
     def _fourier_encode(self, value: float) -> np.ndarray:
         return np.sin(value * 2 ** np.arange(self.enc_freqs)).astype(np.float32)
 
-    @staticmethod
-    def _position_key(snapshot: GameSnapshot) -> tuple[int, int, int]:
-        return snapshot.map_id, snapshot.y, snapshot.x
+    def _info(self, snapshot: GameSnapshot, reward: float, success: bool) -> dict[str, Any]:
+        return {
+            "phase": self.phase.id,
+            "phase_name": self.phase.name,
+            "step_count": self._step_count,
+            "success": success,
+            "reward": reward,
+            "seen_coords": len(self._seen_coords),
+            "snapshot": snapshot.to_info(),
+        }

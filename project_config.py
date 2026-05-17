@@ -1,4 +1,4 @@
-"""Configuracao local por variaveis de ambiente e arquivo .env."""
+"""Helpers simples para configuracao local por .env."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from pathlib import Path
 
 
 def load_dotenv(path: str | Path = ".env") -> None:
-    """Carrega um .env simples sem depender de pacote externo."""
     env_path = Path(path)
     if not env_path.exists():
         return
@@ -16,7 +15,6 @@ def load_dotenv(path: str | Path = ".env") -> None:
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
-
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
@@ -36,3 +34,10 @@ def env_int(name: str, default: int) -> int:
     if value is None:
         return default
     return int(value)
+
+
+def env_float(name: str, default: float) -> float:
+    value = env_str(name)
+    if value is None:
+        return default
+    return float(value)

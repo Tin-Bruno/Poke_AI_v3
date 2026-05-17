@@ -1,167 +1,172 @@
-# Poke AI v3
+# Pokemon Red AI
 
-Base para treinar uma IA a jogar Pokemon Red/Blue com reinforcement learning.
-O projeto usa PyBoy como emulador de Game Boy, Gymnasium como interface de ambiente
-e Stable-Baselines3 para treinar PPO.
+Projeto limpo para treinar uma IA a jogar Pokemon Red por fases, usando PyBoy,
+Gymnasium e Stable-Baselines3.
 
-> Importante: este repositorio nao inclui ROMs, saves ou assets comerciais. Use apenas
-> uma ROM extraida legalmente de um cartucho que voce possui.
+> Este repositorio nao inclui ROMs, saves ou assets comerciais. Use apenas uma ROM
+> extraida legalmente de um cartucho que voce possui.
 
-Este projeto segue a mesma linha do
-[PWhiddy/PokemonRedExperiments](https://github.com/PWhiddy/PokemonRedExperiments),
-especialmente a ideia da V2: recompensar exploracao por coordenadas e alimentar a
-politica com tela, memoria do jogo e sinais de progresso.
+## Estrutura
 
-## Ideia
+```text
+roms/        ROM local, ignorada pelo git
+states/      save states por fase, ignorados pelo git
+models/      modelos treinados por fase, ignorados pelo git
+memory/      mapa de RAM e leitura do estado do jogo
+envs/        ambiente Gym, step handler e success conditions
+rewards/     rewards pequenas e combinaveis
+phases/      configuracao declarativa das fases
+scripts/     treino, avaliacao e ferramentas manuais
+logs/        saidas locais
+runs/        checkpoints e TensorBoard
+```
 
-"Zerar Pokemon" em uma unica politica do zero e um problema grande demais para atacar
-direto. O caminho mais realista e montar um curriculo:
-
-1. sair do quarto e chegar no laboratorio;
-2. pegar o starter;
-3. vencer o rival inicial;
-4. explorar ate Viridian/Pewter;
-5. vencer o Brock;
-6. repetir com novos estados iniciais ate fechar ginasios, HMs, Elite Four e campeao.
-
-Este starter kit entrega o primeiro bloco tecnico: um ambiente treinavel que observa a
-tela, aperta botoes e recompensa exploracao, mapas novos, crescimento do time e badges.
+A regra principal: o ambiente nao sabe a logica de cada fase. Ele executa o jogo,
+le RAM, aplica a acao e chama a configuracao da fase atual.
 
 ## Setup
 
-No PowerShell:
+No Git Bash:
+
+```bash
+py -3.11 -m venv .venv
+source .venv/Scripts/activate
+python --version
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+mkdir -p roms states models logs runs
+```
+
+O `python --version` deve mostrar Python 3.11.x. Se voce usa `python -m venv`
+direto, confira antes se o `python` do terminal aponta para 3.11.
+
+Alternativa no PowerShell:
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python --version
 python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install -r requirements.txt
+New-Item -ItemType Directory -Force roms, states, models, logs, runs
 ```
 
-Ou, se preferir instalar por `requirements.txt`:
+Evite criar o venv com Python 3.14 por enquanto; `torch` e `stable-baselines3`
+costumam ser mais estaveis em 3.11/3.12.
 
-```powershell
+Se o ambiente ja existe com a versao errada:
+
+```bash
+deactivate
+rm -rf .venv
+py -3.11 -m venv .venv
+source .venv/Scripts/activate
+python --version
 python -m pip install -r requirements.txt
 ```
 
-Crie as pastas locais:
+Forma generica, caso seu `python` ja seja 3.11:
 
-```powershell
-New-Item -ItemType Directory -Force roms, states, runs
+```bash
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+mkdir -p roms states models logs runs
 ```
 
-Edite o `.env` se quiser mudar caminhos e parametros padrao:
-
-```text
-POKE_ROM_PATH=roms/pokemon_red.gb
-POKE_WINDOW=null
-POKE_OBSERVATION_MODE=multi
-POKE_TIMESTEPS=100000
-```
-
-Coloque sua ROM em algo como:
+Coloque sua ROM em:
 
 ```text
 roms/pokemon_red.gb
 ```
 
-## Testar o ambiente
-
-```powershell
-python scripts/check_env.py --rom .\roms\pokemon_red.gb --steps 200
-```
-
-Ou, se `POKE_ROM_PATH` ja estiver certo no `.env`:
-
-```powershell
-python scripts/check_env.py --steps 200
-```
-
-Se voce tiver um arquivo de simbolos do projeto pret/pokered, passe tambem:
-
-```powershell
-python scripts/check_env.py --rom .\roms\pokemon_red.gb --symbols .\roms\pokered.sym
-```
-
-Sem simbolos, o projeto usa enderecos comuns de Pokemon Red/Blue vanilla para ler mapa,
-coordenadas, badges e niveis do time.
-
-## Treinar
-
-Treino inicial curto:
-
-```powershell
-python scripts/train_ppo.py --rom .\roms\pokemon_red.gb --timesteps 100000
-```
-
-Com `.env` configurado:
-
-```powershell
-python scripts/train_ppo.py
-```
-
-Por padrao o treino usa `POKE_OBSERVATION_MODE=multi`, que escolhe `MultiInputPolicy`
-e entrega ao modelo:
-
-- `screens`: ultimos frames da tela em 72x80;
-- `health`: fracao de HP do time;
-- `level`: soma dos niveis codificada em Fourier;
-- `badges`: oito bits de insignias;
-- `events`: flags de progresso do jogo;
-- `map`: mapa local de coordenadas visitadas;
-- `recent_actions`: historico curto de acoes.
-
-Treino maior:
-
-```powershell
-python scripts/train_ppo.py --timesteps 5000000 --n-envs 4 --vec-env subproc
-```
-
-Os checkpoints ficam em `runs/checkpoints/` e o modelo final em `runs/models/`.
-
-## Assistir a IA
-
-```powershell
-python scripts/eval_agent.py --rom .\roms\pokemon_red.gb --model .\runs\models\poke_red_ppo.zip --window SDL2
-```
-
-Se `SDL2` der problema no Windows, rode com janela nula:
-
-```powershell
-python scripts/eval_agent.py --rom .\roms\pokemon_red.gb --model .\runs\models\poke_red_ppo.zip --window null
-```
-
-## Usar estados iniciais
-
-Para curriculo, salve estados do PyBoy em marcos importantes, por exemplo:
+Edite o `.env` se precisar:
 
 ```text
-states/01-bedroom.state
-states/02-oaks-lab.state
-states/03-before-brock.state
+POKE_ROM_PATH=roms/pokemon_red.gb
+POKE_PHASE=phase1
+POKE_STATES_DIR=states
+POKE_OBSERVATION_MODE=multi
 ```
 
-Depois treine a partir de um estado:
+## Fases
 
-```powershell
-python scripts/train_ppo.py --rom .\roms\pokemon_red.gb --state .\states\02-oaks-lab.state --timesteps 1000000
+As fases ficam em [phases/phase_config.py](phases/phase_config.py).
+
+Comecamos com:
+
+```text
+phase1  sair do quarto
+phase2  sair da casa
+phase3  ativar evento do Professor Oak
+phase4  ser levado ao laboratorio
+phase5  escolher starter
+phase6  passar dialogo do rival
+phase7  vencer primeira batalha
+phase8  sair do laboratorio
+phase9  ir para Rota 1
 ```
 
-## Ajustes que mais importam
+O primeiro alvo real e deixar `phase1` e `phase2` funcionando muito bem antes de
+avancar.
 
-- `POKE_OBSERVATION_MODE`: `multi` segue a ideia do PokemonRedExperiments V2; `screen`
-  treina apenas em pixels com `CnnPolicy`.
-- `--action-frames`: quantos frames cada acao dura. Valores entre 8 e 24 costumam ser bons.
-- `POKE_MAX_STEPS`: tamanho maximo de cada episodio. O default e `2048 * 80`.
-- `--max-no-progress-steps`: encerra episodio quando a IA para de explorar.
-- `POKE_REWARD_SCALE` e `POKE_EXPLORE_WEIGHT`: controlam o peso global e o peso de exploracao.
-- `RewardConfig` em `src/poke_ai_v3/rewards.py`: pesos de recompensa por mapa, posicao,
-  eventos, cura, badge, nivel e tamanho do time.
-- Estados iniciais: sao mais importantes que mexer no algoritmo no comeco.
+## Fluxo Recomendado
 
-## Proximos passos recomendados
+1. Criar/conferir o state da fase manualmente:
 
-1. Validar que o agente sai de telas de menu com recompensas simples.
-2. Criar estados iniciais por fase.
-3. Adicionar recompensas especificas por objetivo, como pegar Pokedex, obter Cut/Surf e vencer Elite Four.
-4. Registrar videos dos melhores episodios para entender onde a IA trava.
+```bash
+python scripts/manual_control.py --phase phase1 --window SDL2
+```
+
+Comandos do manual:
+
+```text
+w/a/s/d mover
+j=A, k=B, u=START, i=SELECT
+p imprimir RAM
+save states/phase1_start.state
+q sair
+```
+
+2. Testar o ambiente:
+
+```bash
+python scripts/test_env.py --phase phase1 --steps 200
+```
+
+3. Treinar a fase:
+
+```bash
+python scripts/train_phase.py --phase phase1 --timesteps 100000
+```
+
+4. Avaliar:
+
+```bash
+python scripts/eval_phase.py --phase phase1 --window SDL2
+```
+
+5. Se a fase passar, salvar o state para a proxima:
+
+```bash
+python scripts/eval_phase.py --phase phase1 --save-success-state states/phase2_start.state
+```
+
+## Scripts
+
+- `scripts/manual_control.py`: jogar manualmente, ver `map/x/y`, salvar states.
+- `scripts/save_state.py`: atalho para o controle manual focado em salvar states.
+- `scripts/test_env.py`: validar Gym/env de uma fase.
+- `scripts/train_phase.py`: treinar uma fase especifica.
+- `scripts/eval_phase.py`: rodar um modelo treinado.
+- `scripts/eval_sequence.py`: esqueleto para rodar fases em sequencia.
+- `scripts/view_ram.py`: imprimir snapshot de RAM de um state.
+- `scripts/visualization.py`: listar fases configuradas.
+
+## Onde Vamos Comecar
+
+Primeiro vamos criar um `states/phase1_start.state` confiavel. Depois vamos treinar
+somente `phase1`, que termina quando o `map_id` vira `39`. Quando isso estiver
+estavel, salvamos `states/phase2_start.state` e repetimos o processo para sair da
+casa.

@@ -2,82 +2,95 @@ from __future__ import annotations
 
 import unittest
 
-from poke_ai_v3.memory import GameSnapshot
-from poke_ai_v3.rewards import ProgressReward, RewardConfig
+from memory.ram_map import GameSnapshot
+from phases.phase_config import PhaseConfig, get_phase
+from rewards import make_reward
+from rewards.dialog_reward import DialogReward
+from rewards.target_position_reward import TargetPositionReward
 
 
 def snap(
     map_id: int = 1,
     x: int = 1,
     y: int = 1,
-    badges: int = 0,
-    party_count: int = 0,
-    party_levels: tuple[int, ...] = (),
-    hp_fraction: float = 0.0,
     event_count: int = 0,
-    max_opponent_level: int = 0,
+    hp_fraction: float = 1.0,
+    party_levels: tuple[int, ...] = (),
 ) -> GameSnapshot:
     return GameSnapshot(
         map_id=map_id,
         x=x,
         y=y,
-        badges=badges,
-        party_count=party_count,
+        badges=0,
+        party_count=len(party_levels),
         party_levels=party_levels,
         hp_fraction=hp_fraction,
         event_count=event_count,
-        max_opponent_level=max_opponent_level,
     )
 
 
-class ProgressRewardTest(unittest.TestCase):
-    def test_rewards_new_position(self) -> None:
-        rewarder = ProgressReward(RewardConfig(step_penalty=0.0, new_position_reward=1.0))
-        rewarder.reset(snap(x=1))
+class PhaseRewardTest(unittest.TestCase):
+    def test_phase1_rewards_target_map(self) -> None:
+        rewarder = make_reward(get_phase("phase1"), step_penalty=0.0, scale=1.0)
+        rewarder.reset(snap(map_id=1))
 
-        reward, terminated, truncated, info = rewarder.step(snap(x=2))
+        reward, truncated, terms = rewarder.step(snap(map_id=39))
 
-        self.assertEqual(reward, 1.0)
-        self.assertFalse(terminated)
+        self.assertGreaterEqual(reward, 10.0)
         self.assertFalse(truncated)
-        self.assertEqual(info["visited_positions"], 2)
+        self.assertGreater(terms["target_map"], 0)
 
-    def test_rewards_badge_gain_once(self) -> None:
-        rewarder = ProgressReward(RewardConfig(step_penalty=0.0, badge_reward=10.0))
-        rewarder.reset(snap(badges=0))
-
-        reward, *_ = rewarder.step(snap(badges=0b00000011))
-        reward_again, *_ = rewarder.step(snap(badges=0b00000011))
-
-        self.assertEqual(reward, 20.0)
-        self.assertEqual(reward_again, 0.0)
-
-    def test_truncates_when_stuck(self) -> None:
-        rewarder = ProgressReward(RewardConfig(step_penalty=0.0, max_no_progress_steps=2))
-        current = snap()
+    def test_reward_timeout_when_no_progress(self) -> None:
+        phase = PhaseConfig(
+            id="test",
+            name="Teste",
+            state="test.state",
+            model="models/test.zip",
+            max_steps=10,
+            rewards=("new_map",),
+            success="target_map",
+            target_map=2,
+        )
+        current = snap(map_id=1)
+        rewarder = make_reward(phase, step_penalty=0.0, max_no_progress_steps=2)
         rewarder.reset(current)
 
         rewarder.step(current)
-        _, _, truncated, info = rewarder.step(current)
+        _, truncated, terms = rewarder.step(current)
 
         self.assertTrue(truncated)
-        self.assertEqual(info["steps_since_progress"], 2)
+        self.assertEqual(terms["steps_since_progress"], 2)
 
-    def test_rewards_event_gain(self) -> None:
-        rewarder = ProgressReward(RewardConfig(step_penalty=0.0, event_reward=4.0))
-        rewarder.reset(snap(event_count=10))
+    def test_dialog_reward_event_gain(self) -> None:
+        phase = get_phase("phase3")
+        reward = DialogReward(event_reward=2.0)
+        reward.reset(snap(event_count=10), phase)
 
-        reward, *_ = rewarder.step(snap(event_count=13))
+        result = reward.step(snap(event_count=13), phase)
 
-        self.assertEqual(reward, 12.0)
+        self.assertEqual(result.value, 6.0)
+        self.assertTrue(result.progress)
 
-    def test_rewards_healing_delta_squared(self) -> None:
-        rewarder = ProgressReward(RewardConfig(step_penalty=0.0, heal_reward=10.0))
-        rewarder.reset(snap(hp_fraction=0.5, party_count=1))
+    def test_target_position_gets_closer(self) -> None:
+        phase = PhaseConfig(
+            id="test",
+            name="Teste posicao",
+            state="test.state",
+            model="models/test.zip",
+            max_steps=10,
+            rewards=("target_position",),
+            success="target_position",
+            target_map=1,
+            target_x=5,
+            target_y=5,
+        )
+        reward = TargetPositionReward(closer_reward=0.1)
+        reward.reset(snap(x=1, y=1), phase)
 
-        reward, *_ = rewarder.step(snap(hp_fraction=0.7, party_count=1))
+        result = reward.step(snap(x=3, y=3), phase)
 
-        self.assertAlmostEqual(reward, 0.4)
+        self.assertGreater(result.value, 0)
+        self.assertTrue(result.progress)
 
 
 if __name__ == "__main__":

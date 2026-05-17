@@ -9,6 +9,7 @@ roms/
 states/
 runs/
 models/
+logs/
 tensorboard/
 
 *.gb
