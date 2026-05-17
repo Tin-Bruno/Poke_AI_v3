@@ -35,7 +35,9 @@ def main() -> None:
 
     from pyboy import PyBoy
 
-    kwargs = {"window": args.window, "sound_emulated": False}
+    kwargs = {"window": args.window}
+    if args.window == "null":
+        kwargs["sound_emulated"] = False
     if args.symbols:
         kwargs["symbols"] = args.symbols
 

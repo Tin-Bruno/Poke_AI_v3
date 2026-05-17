@@ -143,12 +143,14 @@ class PokemonRedEnv(gym.Env):
         except ImportError as exc:
             raise RuntimeError("Instale as dependencias com: python -m pip install -r requirements.txt") from exc
 
-        kwargs: dict[str, Any] = {"window": self.window, "sound_emulated": False}
+        kwargs: dict[str, Any] = {"window": self.window}
+        if self.window == "null":
+            kwargs["sound_emulated"] = False
         if self.symbols_path:
             kwargs["symbols"] = str(self.symbols_path)
 
         self._pyboy = PyBoy(str(self.rom_path), **kwargs)
-        self._pyboy.set_emulation_speed(0)
+        self._pyboy.set_emulation_speed(0 if self.window == "null" else 1)
 
         with self.state_path.open("rb") as state_file:
             self._pyboy.load_state(state_file)
