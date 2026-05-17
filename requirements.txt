@@ -1,0 +1,5 @@
+gymnasium>=1.0
+numpy>=1.26
+pyboy>=2.6
+stable-baselines3>=2.4
+tensorboard>=2.18
