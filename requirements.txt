@@ -1,6 +1,5 @@
 gymnasium>=1.0
 numpy>=1.26
-pillow>=10.0
-pyboy>=2.6
+pyboy==2.7.1
 stable-baselines3>=2.4
 tensorboard>=2.18

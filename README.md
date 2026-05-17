@@ -81,6 +81,17 @@ Coloque sua ROM em:
 roms/pokemon_red.gb
 ```
 
+## Versao do PyBoy
+
+O projeto fixa `pyboy==2.7.1` porque a versao `2.6.0` pode causar bug visual em
+dialogos. Se o seu ambiente foi criado antes dessa correcao, atualize no Git Bash:
+
+```bash
+source .venv/Scripts/activate
+python -m pip install --upgrade pyboy==2.7.1
+python -m pip show pyboy
+```
+
 ## Testar a ROM Pura
 
 Antes de culpar o ambiente ou os states, rode a ROM direto no PyBoy:
@@ -101,50 +112,6 @@ python scripts/test_rom.py --window SDL2 --mode native --seconds 0
 
 Ele usa renderizacao nativa do PyBoy, sem `window="null"` e sem `tick(..., False)`.
 Feche com `Ctrl+C` no terminal.
-
-Para confirmar se a tela tem caixa de dialogo desenhada:
-
-```bash
-python scripts/dialog_probe.py --phase phase1 --window SDL2
-```
-
-Ele imprime algo assim:
-
-```text
-dialog_visual=True score=0.532 white=0.612 dark=0.284 wx=-7 wy=0 tiles=18 map=0 x=6 y=0
-```
-
-No `manual_control.py`, tambem da para digitar:
-
-```text
-dialog
-```
-
-Campos importantes:
-
-```text
-dialog_visual=True   caixa de texto detectada pela imagem
-white alto           a parte inferior tem fundo claro, normal em textbox
-dark alto e white baixo  a parte inferior esta preta, nao e textbox
-wx/wy                posicao da window layer do Game Boy
-tiles                variedade de tiles na parte inferior
-```
-
-Se quiser salvar a imagem que o detector esta vendo:
-
-```bash
-python scripts/dialog_probe.py --phase phase1 --window SDL2 --seconds 5 --screenshot logs/dialog_probe.png
-```
-
-No `manual_control.py`, o comando abaixo salva uma screenshot:
-
-```text
-screen logs/manual_screen.png
-```
-
-Se `dialog_visual=False`, a caixa de texto nao esta desenhada na tela. Se o jogo
-parece travado mesmo assim, provavelmente ele esta aguardando algum evento/menu,
-mas nao em uma textbox visual.
 
 Para testar os botoes injetados pelo terminal, sem state:
 
@@ -217,8 +184,6 @@ Comandos do manual:
 w/a/s/d mover
 j=A, k=B, u=START, i=SELECT
 p imprimir RAM
-dialog confirma se ha caixa de dialogo na tela
-screen logs/manual_screen.png salva uma screenshot
 talk 10 avanca dialogo apertando A com pausa
 wait 60 espera 60 frames
 save states/phase1_start.state
@@ -285,7 +250,6 @@ python scripts/eval_phase.py --phase phase1 --save-success-state states/phase2_s
 - `scripts/manual_control.py`: jogar manualmente, ver `map/x/y`, salvar states.
 - `scripts/save_state.py`: jogar direto na janela PyBoy e salvar state ao fechar.
 - `scripts/test_rom.py`: testar a ROM pura, sem carregar state nem ambiente Gym.
-- `scripts/dialog_probe.py`: monitorar se a caixa de dialogo esta desenhada.
 - `scripts/test_env.py`: validar Gym/env de uma fase.
 - `scripts/train_phase.py`: treinar uma fase especifica.
 - `scripts/eval_phase.py`: rodar um modelo treinado.

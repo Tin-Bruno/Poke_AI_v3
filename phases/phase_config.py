@@ -48,7 +48,7 @@ PHASES: dict[str, PhaseConfig] = {
         state="phase3_start.state",
         model="models/phase3_oak_event.zip",
         max_steps=600,
-        rewards=("dialog", "target_position"),
+        rewards=("new_map",),
         success="dialog_or_map_change",
     ),
     "phase4": PhaseConfig(

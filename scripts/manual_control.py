@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from envs.step_handler import ACTIONS, StepHandler
-from memory import PokemonRedRamReader, detect_dialog_from_pyboy
+from memory import PokemonRedRamReader
 from phases import get_phase
 from project_config import env_int, env_str, load_dotenv
 
@@ -184,14 +184,6 @@ def run_sequence_mode(
         if command == "p":
             print_snapshot(reader)
             continue
-        if command in {"dialog", "dlg"}:
-            print_dialog_state(pyboy, reader)
-            continue
-        if command.startswith("screen"):
-            _, _, raw_path = command.partition(" ")
-            output = Path(raw_path.strip()) if raw_path.strip() else Path("logs/manual_screen.png")
-            save_screenshot(pyboy, output)
-            continue
         if command.startswith("save"):
             _, _, raw_path = command.partition(" ")
             output = Path(raw_path.strip()) if raw_path.strip() else state_path
@@ -276,26 +268,6 @@ def print_snapshot(reader: PokemonRedRamReader) -> None:
         f"badges={snapshot.badge_count} events={snapshot.event_count} "
         f"party={snapshot.party_count} levels={list(snapshot.party_levels)}"
     )
-
-
-def print_dialog_state(pyboy, reader: PokemonRedRamReader) -> None:
-    snapshot = reader.snapshot()
-    detection = detect_dialog_from_pyboy(pyboy)
-    print(
-        f"dialog_visual={detection.visual} score={detection.score:.3f} "
-        f"white={detection.bottom_white:.3f} dark={detection.bottom_dark:.3f} "
-        f"top={detection.top_edge_dark:.3f} bottom={detection.bottom_edge_dark:.3f} "
-        f"left={detection.left_edge_dark:.3f} right={detection.right_edge_dark:.3f} "
-        f"wx={detection.window_x} wy={detection.window_y} "
-        f"win={detection.window_on_screen} tiles={detection.bottom_unique_tiles} "
-        f"map={snapshot.map_id} x={snapshot.x} y={snapshot.y} events={snapshot.event_count}"
-    )
-
-
-def save_screenshot(pyboy, output: Path) -> None:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    pyboy.screen.image.save(output)
-    print(f"Screenshot salva: {output}")
 
 
 if __name__ == "__main__":
