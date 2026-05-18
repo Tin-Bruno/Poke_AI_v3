@@ -112,6 +112,7 @@ def main() -> None:
 
     try:
         model = load_model(model_path, phase)
+        ensure_model_compatible(model, env, phase)
 
         obs = env.reset()
         final_info = {}
@@ -159,6 +160,7 @@ def eval_raw_env(args: argparse.Namespace, phase, model_path: str | Path) -> Non
     )
     try:
         model = load_model(model_path, phase)
+        ensure_model_compatible(model, env, phase)
 
         obs, _ = env.reset()
         final_info = {}
@@ -203,6 +205,23 @@ def load_model(model_path: str | Path, phase) -> PPO:
             f"Treine novamente com: python scripts/train_phase.py --phase {phase.id} --timesteps 100000\n"
             f"Detalhe: {exc}"
         ) from exc
+
+
+def ensure_model_compatible(model: PPO, env: PokemonRedEnv, phase) -> None:
+    if model.action_space != env.action_space:
+        raise SystemExit(
+            "Modelo incompatível com a configuração atual da fase. "
+            "Isso normalmente acontece depois de mudar o conjunto de ações. "
+            f"Treine novamente com: python scripts/train_phase.py --phase {phase.id} "
+            "--timesteps 100000 --observation-mode coords --window null"
+        )
+    if model.observation_space != env.observation_space:
+        raise SystemExit(
+            "Modelo incompatível com a observação atual da fase. "
+            "Isso normalmente acontece depois de mudar --observation-mode. "
+            f"Treine novamente com: python scripts/train_phase.py --phase {phase.id} "
+            "--timesteps 100000 --observation-mode coords --window null"
+        )
 
 
 def print_final_summary(

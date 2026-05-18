@@ -31,6 +31,8 @@ def dialog_or_map_change(snapshot: GameSnapshot, initial: GameSnapshot, phase: P
 def event_count_increase(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return snapshot.event_count > initial.event_count
 
+def party_count_increase(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
+    return snapshot.party_count > initial.party_count
 
 def badge_count(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return phase.target_badges is not None and snapshot.badge_count >= phase.target_badges
@@ -41,6 +43,7 @@ SUCCESS_CONDITIONS: dict[str, SuccessFn] = {
     "target_position": target_position,
     "dialog_or_map_change": dialog_or_map_change,
     "event_count_increase": event_count_increase,
+    "party_count_increase": party_count_increase,
     "badge_count": badge_count,
 }
 

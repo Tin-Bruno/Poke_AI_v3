@@ -83,12 +83,12 @@ roms/pokemon_red.gb
 
 ## Versao do PyBoy
 
-O projeto fixa `pyboy==2.7.1` porque a versao `2.6.0` pode causar bug visual em
+O projeto fixa `pyboy==2.6.0` porque a versao `2.7.1` pode causar bug visual em
 dialogos. Se o seu ambiente foi criado antes dessa correcao, atualize no Git Bash:
 
 ```bash
 source .venv/Scripts/activate
-python -m pip install --upgrade pyboy==2.7.1
+python -m pip install --upgrade pyboy==2.6.0
 python -m pip show pyboy
 ```
 

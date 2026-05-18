@@ -52,6 +52,20 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(phase.rewards, ("waypoint", "dialog"))
         self.assertEqual(phase.waypoints, ((0, 8, 2), (0, 10, 2), (0, 10, 1)))
 
+    def test_phase4_success_requires_lab_dialog_destination(self) -> None:
+        phase = get_phase("phase4")
+        env = PokemonRedEnv(
+            rom_path="missing.gb",
+            phase=phase,
+            observation_mode="coords",
+        )
+
+        self.assertEqual(phase.success, "target_position")
+        self.assertEqual(phase.rewards, ("target_position", "dialog"))
+        self.assertEqual(phase.target_map, 40)
+        self.assertEqual((phase.target_x, phase.target_y), (5, 11))
+        self.assertEqual(env.actions, ("a", "b", "noop"))
+
 
 if __name__ == "__main__":
     unittest.main()

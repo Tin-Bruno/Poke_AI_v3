@@ -11,7 +11,7 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
     "gymnasium>=1.0",
     "numpy>=1.26",
-    "pyboy==2.7.1",
+    "pyboy==2.6.0",
     "stable-baselines3>=2.4",
     "tensorboard>=2.18",
 ]

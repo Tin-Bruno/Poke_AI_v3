@@ -131,7 +131,43 @@ Se passar, salvar a phase4:
 python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase4_start.state
 
 
-11) Controle manual
+11) Phase4 - ser levado ao laboratorio
+--------------------------------------
+
+A phase4 termina somente quando chegar ao ponto correto dentro do laboratorio:
+
+map=40 x=5 y=11
+
+Ela nao termina mais apenas por entrar no laboratorio.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase4 --timesteps 100000 --observation-mode coords --window null
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase4 --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase5:
+
+python scripts/eval_phase.py --phase phase4 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5_start.state
+
+
+12) Treinar mais rapido com varios PyBoys
+-----------------------------------------
+
+Use um unico PPO com varios ambientes, em vez de varios PPOs escrevendo no mesmo modelo.
+
+Exemplo com 6 PyBoys em paralelo:
+
+python scripts/train_phase.py --phase phase1 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Para ver a tela, use somente 1 ambiente:
+
+python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
+
+
+13) Controle manual
 -------------------
 
 python scripts/manual_control.py --phase phase1 --window SDL2
@@ -161,7 +197,7 @@ talk 10
 wait 60
 
 
-12) Significado dos argumentos mais usados
+14) Significado dos argumentos mais usados
 ------------------------------------------
 
 --phase
@@ -219,7 +255,7 @@ Taxa de aprendizado. No modo v2 usamos 0.0003.
 Bonus de exploracao/entropia. No modo v2 usamos 0.0.
 
 
-13) Fluxo recomendado para cada fase
+15) Fluxo recomendado para cada fase
 ------------------------------------
 
 1. Conferir state:
