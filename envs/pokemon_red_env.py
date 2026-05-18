@@ -145,6 +145,11 @@ class PokemonRedEnv(gym.Env):
         with state_path.open("wb") as state_file:
             self._pyboy.save_state(state_file)
 
+    def wait(self, frames: int) -> None:
+        if self._step_handler is None:
+            raise RuntimeError("Ambiente ainda nao foi inicializado. Chame reset() primeiro.")
+        self._step_handler.wait(frames)
+
     def _restart_emulator(self) -> None:
         self.close()
         self._check_paths()

@@ -49,6 +49,8 @@ PHASES: dict[str, PhaseConfig] = {
         rewards=("target_map", "new_map"),
         success="target_map",
         target_map=0,
+        blocked_move_penalty=-0.03,
+        actions=("up", "down", "left", "right", "noop"),
     ),
     "phase3": PhaseConfig(
         id="phase3",

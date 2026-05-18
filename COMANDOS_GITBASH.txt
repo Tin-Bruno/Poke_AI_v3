@@ -1,0 +1,205 @@
+COMANDOS GIT BASH - POKE_AI_V3
+================================
+
+1) Ativar o ambiente virtual
+----------------------------
+
+source .venv/Scripts/activate
+
+
+2) Validar o projeto
+--------------------
+
+python -m unittest discover -s tests -v
+
+python -m py_compile project_config.py envs/pokemon_red_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py
+
+
+3) Ver RAM de uma fase/state
+----------------------------
+
+python scripts/view_ram.py --phase phase1 --window null
+
+python scripts/view_ram.py --phase phase2 --window null
+
+
+4) Testar ambiente sem treinar
+------------------------------
+
+python scripts/test_env.py --phase phase1 --steps 40 --window null --observation-mode coords
+
+python scripts/test_env.py --phase phase2 --steps 40 --window null --observation-mode coords
+
+
+5) Treinar phase1
+-----------------
+
+Treino rapido/headless:
+
+python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window null
+
+Treino vendo a tela:
+
+python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
+
+Treino com parametros iguais ao projeto v2:
+
+python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window null --batch-size 64 --gamma 0.95 --n-epochs 10 --learning-rate 0.0003 --ent-coef 0.0
+
+
+6) Avaliar phase1
+-----------------
+
+Avaliar rapido/headless:
+
+python scripts/eval_phase.py --phase phase1 --window null --observation-mode coords --steps 400
+
+Avaliar vendo a tela devagar:
+
+python scripts/eval_phase.py --phase phase1 --window SDL2 --observation-mode coords --delay 0.3
+
+Durante a avaliacao, aperte q no terminal para parar e fechar o PyBoy.
+
+Salvar o state da phase2 quando a phase1 passar:
+
+python scripts/eval_phase.py --phase phase1 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase2_start.state
+
+Salvar o state da phase2 headless:
+
+python scripts/eval_phase.py --phase phase1 --window null --observation-mode coords --steps 400 --save-success-state states/phase2_start.state
+
+
+7) Treinar phase2
+-----------------
+
+python scripts/train_phase.py --phase phase2 --timesteps 20000 --observation-mode coords --window null
+
+Para ver o treino na tela:
+
+python scripts/train_phase.py --phase phase2 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
+
+
+8) Avaliar phase2
+-----------------
+
+python scripts/eval_phase.py --phase phase2 --window null --observation-mode coords --steps 500
+
+python scripts/eval_phase.py --phase phase2 --window SDL2 --observation-mode coords --delay 0.3
+
+Durante a avaliacao, aperte q no terminal para parar e fechar o PyBoy.
+
+
+9) Procurar rota simples ate o mapa alvo
+----------------------------------------
+
+python scripts/find_phase_path.py --phase phase1 --max-depth 80
+
+python scripts/find_phase_path.py --phase phase2 --max-depth 80
+
+
+10) Controle manual
+-------------------
+
+python scripts/manual_control.py --phase phase1 --window SDL2
+
+python scripts/manual_control.py --phase phase2 --window SDL2
+
+Comandos dentro do manual_control:
+
+w = up
+s = down
+a = left
+d = right
+j = botao A
+k = botao B
+u = START
+i = SELECT
+. = noop
+p = imprimir RAM
+save states/phaseX_start.state = salvar state
+q = sair
+
+Exemplos:
+
+ddddww
+10j
+talk 10
+wait 60
+
+
+11) Significado dos argumentos mais usados
+------------------------------------------
+
+--phase
+Escolhe qual fase usar. Exemplos: phase1, phase2.
+
+--timesteps
+Quantidade de passos de treino. Exemplo: --timesteps 20000.
+
+--observation-mode coords
+Usa observacao simples [map_id, x, y]. E o modo inspirado no projeto v2.
+
+--window null
+Roda sem janela. Mais rapido para treinar.
+
+--window SDL2
+Abre a janela do PyBoy. Bom para assistir.
+
+--delay
+Pausa entre acoes na avaliacao. Exemplo: --delay 0.3.
+
+--steps
+Limite de passos na avaliacao ou teste. Exemplo: --steps 400.
+
+--save-success-state
+Salva o state quando a fase termina com sucesso.
+Exemplo: --save-success-state states/phase2_start.state.
+
+--save-wait-frames
+Espera alguns frames antes de salvar o proximo state, para estabilizar transicoes.
+Default atual: 90.
+
+--action-frames
+Frames segurando cada botao. Aumentar deixa cada toque mais longo.
+
+--n-envs 1 --vec-env dummy
+Forca um unico ambiente. Use quando quiser ver a tela no treino.
+
+--batch-size
+Tamanho do batch do PPO. No modo v2 usamos 64.
+
+--gamma
+Fator de desconto do PPO. No modo v2 usamos 0.95.
+
+--n-epochs
+Epocas de otimizacao por update do PPO. No modo v2 usamos 10.
+
+--learning-rate
+Taxa de aprendizado. No modo v2 usamos 0.0003.
+
+--ent-coef
+Bonus de exploracao/entropia. No modo v2 usamos 0.0.
+
+
+12) Fluxo recomendado para cada fase
+------------------------------------
+
+1. Conferir state:
+
+python scripts/view_ram.py --phase phase1 --window null
+
+2. Testar ambiente:
+
+python scripts/test_env.py --phase phase1 --steps 40 --window null --observation-mode coords
+
+3. Treinar:
+
+python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window null
+
+4. Assistir:
+
+python scripts/eval_phase.py --phase phase1 --window SDL2 --observation-mode coords --delay 0.3
+
+5. Salvar proxima fase:
+
+python scripts/eval_phase.py --phase phase1 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase2_start.state
