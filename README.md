@@ -135,7 +135,7 @@ Edite o `.env` se precisar:
 POKE_ROM_PATH=roms/pokemon_red.gb
 POKE_PHASE=phase1
 POKE_STATES_DIR=states
-POKE_OBSERVATION_MODE=multi
+POKE_OBSERVATION_MODE=coords
 ```
 
 ## Fases
@@ -230,7 +230,7 @@ python scripts/test_env.py --phase phase1 --steps 200
 3. Treinar a fase:
 
 ```bash
-python scripts/train_phase.py --phase phase1 --timesteps 100000
+python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords
 ```
 
 4. Avaliar:
@@ -250,6 +250,7 @@ python scripts/eval_phase.py --phase phase1 --save-success-state states/phase2_s
 - `scripts/manual_control.py`: jogar manualmente, ver `map/x/y`, salvar states.
 - `scripts/save_state.py`: jogar direto na janela PyBoy e salvar state ao fechar.
 - `scripts/test_rom.py`: testar a ROM pura, sem carregar state nem ambiente Gym.
+- `scripts/find_phase_path.py`: procurar uma rota simples ate o mapa alvo da fase.
 - `scripts/test_env.py`: validar Gym/env de uma fase.
 - `scripts/train_phase.py`: treinar uma fase especifica.
 - `scripts/eval_phase.py`: rodar um modelo treinado.
@@ -260,6 +261,25 @@ python scripts/eval_phase.py --phase phase1 --save-success-state states/phase2_s
 ## Onde Vamos Comecar
 
 Primeiro vamos criar um `states/phase1_start.state` confiavel. Depois vamos treinar
-somente `phase1`, que termina quando o `map_id` vira `39`. Quando isso estiver
+somente `phase1`, que termina quando o `map_id` vira `37`. Quando isso estiver
 estavel, salvamos `states/phase2_start.state` e repetimos o processo para sair da
 casa.
+
+Na `phase1`, a recompensa tambem guia o agente ate a escada do quarto em
+`map=38 x=7 y=1`, porque esperar apenas a troca de mapa deixa o aprendizado mais
+aleatorio.
+
+Tambem aplicamos uma pequena penalidade quando uma acao de movimento bate em
+parede/objeto e nao muda `map/x/y`. Isso ajuda a evitar politicas presas, como
+ficar apertando `up` no ponto inicial.
+
+O ambiente tambem envia um vetor `position` na observacao (`map_id`, `x`, `y` e
+distancia aproximada ate o alvo). Se esse formato mudar, modelos antigos precisam
+ser treinados novamente.
+
+Para reproduzir a politica simples que funcionou no projeto v2, use
+`POKE_OBSERVATION_MODE=coords` ou passe `--observation-mode coords`. Esse modo usa
+apenas `[map_id, x, y]` como observacao e treina com `MlpPolicy`, que costuma ser
+mais facil para as primeiras fases de movimento. A `phase1` tambem reduz o espaco
+de acoes para `up/down/left/right/noop`, evitando botoes que nao ajudam a sair do
+quarto.

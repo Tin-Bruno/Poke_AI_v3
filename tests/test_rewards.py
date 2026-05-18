@@ -34,7 +34,7 @@ class PhaseRewardTest(unittest.TestCase):
         rewarder = make_reward(get_phase("phase1"), step_penalty=0.0, scale=1.0)
         rewarder.reset(snap(map_id=1))
 
-        reward, truncated, terms = rewarder.step(snap(map_id=39))
+        reward, truncated, terms = rewarder.step(snap(map_id=37))
 
         self.assertGreaterEqual(reward, 10.0)
         self.assertFalse(truncated)

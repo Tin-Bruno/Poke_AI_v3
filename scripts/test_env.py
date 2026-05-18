@@ -23,7 +23,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--symbols", default=env_str("POKE_SYMBOLS_PATH"))
     parser.add_argument("--window", default=env_str("POKE_WINDOW", "null"))
     parser.add_argument("--steps", type=int, default=200)
-    parser.add_argument("--observation-mode", default=env_str("POKE_OBSERVATION_MODE", "multi"))
+    parser.add_argument(
+        "--observation-mode",
+        choices=("coords", "screen", "multi"),
+        default=env_str("POKE_OBSERVATION_MODE", "coords"),
+    )
     parser.add_argument("--action-frames", type=int, default=env_int("POKE_ACTION_FRAMES", 12))
     parser.add_argument("--reward-scale", type=float, default=env_float("POKE_REWARD_SCALE", 1.0))
     args = parser.parse_args()

@@ -38,6 +38,9 @@ class TargetPositionReward(RewardComponent):
     def _distance(snapshot: GameSnapshot, phase: PhaseConfig) -> int | None:
         if phase.target_x is None or phase.target_y is None:
             return None
-        if phase.target_map is not None and snapshot.map_id != phase.target_map:
+        target_map = phase.target_position_map
+        if target_map is None:
+            target_map = phase.target_map
+        if target_map is not None and snapshot.map_id != target_map:
             return 999
         return abs(snapshot.x - phase.target_x) + abs(snapshot.y - phase.target_y)

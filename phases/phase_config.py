@@ -15,10 +15,13 @@ class PhaseConfig:
     rewards: tuple[str, ...]
     success: str
     target_map: int | None = None
+    target_position_map: int | None = None
     target_x: int | None = None
     target_y: int | None = None
     target_radius: int = 0
     target_badges: int | None = None
+    blocked_move_penalty: float = 0.0
+    actions: tuple[str, ...] | None = None
 
 
 PHASES: dict[str, PhaseConfig] = {
@@ -28,9 +31,14 @@ PHASES: dict[str, PhaseConfig] = {
         state="phase1_start.state",
         model="models/phase1_room_exit.zip",
         max_steps=400,
-        rewards=("target_map", "new_map"),
+        rewards=("target_position", "target_map", "new_map"),
         success="target_map",
-        target_map=39,
+        target_map=37,
+        target_position_map=38,
+        target_x=7,
+        target_y=1,
+        blocked_move_penalty=-0.03,
+        actions=("up", "down", "left", "right", "noop"),
     ),
     "phase2": PhaseConfig(
         id="phase2",

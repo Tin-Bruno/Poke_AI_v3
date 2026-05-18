@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecFrameStack
 
 from envs import PokemonRedEnv
@@ -42,14 +43,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timesteps", type=int, default=env_int("POKE_TIMESTEPS", 100_000))
     parser.add_argument("--n-envs", type=int, default=env_int("POKE_N_ENVS", 1))
     parser.add_argument("--vec-env", choices=("dummy", "subproc"), default=env_str("POKE_VEC_ENV", "dummy"))
-    parser.add_argument("--observation-mode", choices=("screen", "multi"), default=env_str("POKE_OBSERVATION_MODE", "multi"))
+    parser.add_argument(
+        "--observation-mode",
+        choices=("coords", "screen", "multi"),
+        default=env_str("POKE_OBSERVATION_MODE", "coords"),
+    )
     parser.add_argument("--frame-stacks", type=int, default=env_int("POKE_FRAME_STACKS", 3))
     parser.add_argument("--action-frames", type=int, default=env_int("POKE_ACTION_FRAMES", 12))
     parser.add_argument("--warmup-frames", type=int, default=env_int("POKE_WARMUP_FRAMES", 0))
     parser.add_argument("--reward-scale", type=float, default=env_float("POKE_REWARD_SCALE", 1.0))
     parser.add_argument("--max-no-progress-steps", type=int, default=env_int("POKE_MAX_NO_PROGRESS_STEPS", 200))
     parser.add_argument("--n-steps", type=int, default=env_int("POKE_PPO_N_STEPS", 512))
-    parser.add_argument("--batch-size", type=int, default=env_int("POKE_PPO_BATCH_SIZE", 256))
+    parser.add_argument("--batch-size", type=int, default=env_int("POKE_PPO_BATCH_SIZE", 64))
+    parser.add_argument("--learning-rate", type=float, default=env_float("POKE_PPO_LEARNING_RATE", 3e-4))
+    parser.add_argument("--gamma", type=float, default=env_float("POKE_PPO_GAMMA", 0.95))
+    parser.add_argument("--n-epochs", type=int, default=env_int("POKE_PPO_N_EPOCHS", 10))
+    parser.add_argument("--ent-coef", type=float, default=env_float("POKE_PPO_ENT_COEF", 0.0))
     parser.add_argument("--checkpoint-dir", default=runs_dir / "checkpoints")
     parser.add_argument("--tensorboard-dir", default=runs_dir / "tensorboard")
     args = parser.parse_args()
@@ -65,8 +74,8 @@ def main() -> None:
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     Path(phase.model).parent.mkdir(parents=True, exist_ok=True)
 
-    def make_env() -> PokemonRedEnv:
-        return PokemonRedEnv(
+    def make_env() -> Monitor:
+        env = PokemonRedEnv(
             rom_path=args.rom,
             phase=phase,
             states_dir=args.states_dir,
@@ -79,13 +88,19 @@ def main() -> None:
             reward_scale=args.reward_scale,
             max_no_progress_steps=args.max_no_progress_steps,
         )
+        return Monitor(env)
 
     vec_cls = SubprocVecEnv if args.vec_env == "subproc" and args.n_envs > 1 else DummyVecEnv
     env = vec_cls([make_env for _ in range(args.n_envs)])
     if args.observation_mode == "screen":
         env = VecFrameStack(env, n_stack=4, channels_order="first")
 
-    policy = "MultiInputPolicy" if args.observation_mode == "multi" else "CnnPolicy"
+    if args.observation_mode == "multi":
+        policy = "MultiInputPolicy"
+    elif args.observation_mode == "screen":
+        policy = "CnnPolicy"
+    else:
+        policy = "MlpPolicy"
     batch_size = min(args.batch_size, max(args.n_steps * args.n_envs, 2))
 
     callbacks = CallbackList(
@@ -105,10 +120,10 @@ def main() -> None:
         verbose=1,
         n_steps=args.n_steps,
         batch_size=batch_size,
-        n_epochs=1,
-        gamma=0.997,
-        learning_rate=2.5e-4,
-        ent_coef=0.01,
+        n_epochs=args.n_epochs,
+        gamma=args.gamma,
+        learning_rate=args.learning_rate,
+        ent_coef=args.ent_coef,
         tensorboard_log=args.tensorboard_dir,
     )
     model.learn(total_timesteps=args.timesteps, callback=callbacks, tb_log_name=phase.id)

@@ -51,8 +51,9 @@ class PokemonRedEnv(gym.Env):
         self.coords_pad = 12
         self.enc_freqs = 8
         self.render_mode = render_mode
+        self.actions = self.phase.actions or ACTIONS
 
-        self.action_space = spaces.Discrete(len(ACTIONS))
+        self.action_space = spaces.Discrete(len(self.actions))
         self.observation_space = self._build_observation_space()
 
         self._pyboy: Any | None = None
@@ -95,6 +96,7 @@ class PokemonRedEnv(gym.Env):
         if self._step_handler is None:
             raise RuntimeError("Ambiente ainda nao foi inicializado. Chame reset() primeiro.")
 
+        previous_snapshot = self._snapshot()
         running = self._step_handler.run(action)
         self._step_count += 1
 
@@ -103,13 +105,22 @@ class PokemonRedEnv(gym.Env):
         self._update_recent_actions(action)
 
         reward, no_progress_timeout, reward_terms = self._reward.step(snapshot)
+        blocked_move = self._is_blocked_move(action, previous_snapshot, snapshot)
+        if blocked_move and self.phase.blocked_move_penalty:
+            reward += self.phase.blocked_move_penalty
+            reward_terms["blocked_move_penalty"] = self.phase.blocked_move_penalty
+            reward_terms["reward_scaled"] = reward
+            if self._reward.scale:
+                reward_terms["reward_unscaled"] = reward / self._reward.scale
+
         success = self._success.check(snapshot) if self._success else False
         terminated = success or not running
         truncated = self._step_count >= self.phase.max_steps or no_progress_timeout
 
         info = self._info(snapshot, reward=reward, success=success)
         info.update(reward_terms)
-        info["action"] = action_name(action)
+        info["action"] = action_name(action, self.actions)
+        info["blocked_move"] = blocked_move
         info["no_progress_timeout"] = no_progress_timeout
 
         return self._observation(snapshot), float(reward), terminated, truncated, info
@@ -160,6 +171,7 @@ class PokemonRedEnv(gym.Env):
             self._pyboy,
             action_frames=self.action_frames,
             render=self.window != "null",
+            actions=self.actions,
         )
 
     def _check_paths(self) -> None:
@@ -179,6 +191,9 @@ class PokemonRedEnv(gym.Env):
         return self._reader.snapshot()
 
     def _build_observation_space(self) -> spaces.Space:
+        if self.observation_mode == "coords":
+            return spaces.Box(low=0, high=255, shape=(3,), dtype=np.uint8)
+
         if self.observation_mode == "screen":
             return spaces.Box(low=0, high=255, shape=(1, 72, 80), dtype=np.uint8)
 
@@ -195,19 +210,23 @@ class PokemonRedEnv(gym.Env):
                     "level": spaces.Box(low=-1.0, high=1.0, shape=(self.enc_freqs,), dtype=np.float32),
                     "badges": spaces.MultiBinary(8),
                     "events": spaces.MultiBinary(EVENT_BITS),
+                    "position": spaces.Box(low=-1.0, high=1.0, shape=(8,), dtype=np.float32),
                     "map": spaces.Box(
                         low=0,
                         high=255,
                         shape=(1, self.coords_pad * 4, self.coords_pad * 4),
                         dtype=np.uint8,
                     ),
-                    "recent_actions": spaces.MultiDiscrete([len(ACTIONS)] * self.frame_stacks),
+                    "recent_actions": spaces.MultiDiscrete([len(self.actions)] * self.frame_stacks),
                 }
             )
 
-        raise ValueError("observation_mode deve ser 'screen' ou 'multi'")
+        raise ValueError("observation_mode deve ser 'coords', 'screen' ou 'multi'")
 
     def _observation(self, snapshot: GameSnapshot) -> Observation:
+        if self.observation_mode == "coords":
+            return np.array([snapshot.map_id, snapshot.x, snapshot.y], dtype=np.uint8)
+
         screen = self._screen_observation()[0]
         if self.observation_mode == "screen":
             return screen[np.newaxis, :, :]
@@ -219,6 +238,7 @@ class PokemonRedEnv(gym.Env):
             "level": self._fourier_encode(0.02 * sum(snapshot.party_levels)),
             "badges": np.array([int(bit) for bit in f"{snapshot.badges:08b}"], dtype=np.int8),
             "events": np.array(snapshot.event_bits, dtype=np.int8),
+            "position": self._position_features(snapshot),
             "map": self._local_explore_map(snapshot)[np.newaxis, :, :],
             "recent_actions": self._recent_actions.copy(),
         }
@@ -248,6 +268,34 @@ class PokemonRedEnv(gym.Env):
 
         return np.repeat(np.repeat(base, 2, axis=0), 2, axis=1)
 
+    def _position_features(self, snapshot: GameSnapshot) -> np.ndarray:
+        target_map = self.phase.target_position_map
+        if target_map is None:
+            target_map = self.phase.target_map
+
+        target_x = snapshot.x if self.phase.target_x is None else self.phase.target_x
+        target_y = snapshot.y if self.phase.target_y is None else self.phase.target_y
+        success_map = snapshot.map_id if self.phase.target_map is None else self.phase.target_map
+
+        same_position_map = 1.0 if target_map is not None and snapshot.map_id == target_map else 0.0
+        same_success_map = 1.0 if snapshot.map_id == success_map else 0.0
+        dx = np.clip((target_x - snapshot.x) / 20.0, -1.0, 1.0)
+        dy = np.clip((target_y - snapshot.y) / 20.0, -1.0, 1.0)
+
+        return np.array(
+            [
+                np.clip(snapshot.map_id / 255.0, 0.0, 1.0),
+                np.clip(snapshot.x / 255.0, 0.0, 1.0),
+                np.clip(snapshot.y / 255.0, 0.0, 1.0),
+                np.clip(success_map / 255.0, 0.0, 1.0),
+                dx,
+                dy,
+                same_position_map,
+                same_success_map,
+            ],
+            dtype=np.float32,
+        )
+
     def _update_recent_screens(self, screen: np.ndarray) -> None:
         self._recent_screens = np.roll(self._recent_screens, 1, axis=0)
         self._recent_screens[0] = screen
@@ -255,6 +303,18 @@ class PokemonRedEnv(gym.Env):
     def _update_recent_actions(self, action: int) -> None:
         self._recent_actions = np.roll(self._recent_actions, 1)
         self._recent_actions[0] = int(action)
+
+    def _is_blocked_move(
+        self,
+        action: int,
+        previous: GameSnapshot,
+        current: GameSnapshot,
+    ) -> bool:
+        if action_name(action, self.actions) not in {"up", "down", "left", "right"}:
+            return False
+        if previous.in_battle or current.in_battle:
+            return False
+        return previous.position == current.position
 
     def _fourier_encode(self, value: float) -> np.ndarray:
         return np.sin(value * 2 ** np.arange(self.enc_freqs)).astype(np.float32)
