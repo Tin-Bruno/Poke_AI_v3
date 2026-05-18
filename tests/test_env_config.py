@@ -9,7 +9,6 @@ from phases.phase_config import (
     DIALOG_CONFIRM_ACTIONS,
     DIALOG_RELEASE_ACTIONS,
     MOVE_ACTIONS,
-    WORLD_INTERACT_ACTIONS,
 )
 
 
@@ -67,8 +66,11 @@ class EnvConfigTest(unittest.TestCase):
     def test_phase5_uses_b_then_down_to_prove_control(self) -> None:
         self.assertEqual(get_phase("phase5").actions, DIALOG_RELEASE_ACTIONS)
 
-    def test_world_interaction_phase_uses_a_without_b(self) -> None:
-        self.assertEqual(get_phase("phase5b").actions, WORLD_INTERACT_ACTIONS)
+    def test_phase5b_uses_only_movement_to_reach_pokeball(self) -> None:
+        self.assertEqual(get_phase("phase5b").actions, MOVE_ACTIONS)
+
+    def test_phase5c_uses_a_and_b_to_choose_starter(self) -> None:
+        self.assertEqual(get_phase("phase5c").actions, DIALOG_CONFIRM_ACTIONS)
 
     def test_phase3_success_requires_event_progress(self) -> None:
         phase = get_phase("phase3")
@@ -105,14 +107,22 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(phase.actions, DIALOG_RELEASE_ACTIONS)
         self.assertEqual(phase.save_actions, ("b",))
 
-    def test_phase5b_rewards_starter_pickup(self) -> None:
+    def test_phase5b_reaches_front_of_pokeball(self) -> None:
         phase = get_phase("phase5b")
 
-        self.assertEqual(phase.success, "party_count_increase")
-        self.assertEqual(phase.rewards, ("waypoint", "party"))
+        self.assertEqual(phase.success, "target_position")
+        self.assertEqual(phase.rewards, ("waypoint", "target_position"))
+        self.assertEqual((phase.target_x, phase.target_y), (8, 4))
         self.assertEqual(phase.waypoints[0], (40, 5, 3))
         self.assertEqual(phase.waypoints[-1], (40, 8, 4))
-        self.assertEqual(phase.actions, WORLD_INTERACT_ACTIONS)
+        self.assertEqual(phase.actions, MOVE_ACTIONS)
+
+    def test_phase5c_rewards_starter_pickup(self) -> None:
+        phase = get_phase("phase5c")
+
+        self.assertEqual(phase.success, "party_count_increase")
+        self.assertEqual(phase.rewards, ("dialog", "party"))
+        self.assertEqual(phase.actions, DIALOG_CONFIRM_ACTIONS)
 
 
 if __name__ == "__main__":

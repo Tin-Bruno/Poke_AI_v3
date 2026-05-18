@@ -31,7 +31,6 @@ MOVE_ACTIONS = ("up", "down", "left", "right", "noop")
 DIALOG_ACTIONS = ("b", "noop")
 DIALOG_CONFIRM_ACTIONS = ("a", "b", "noop")
 DIALOG_RELEASE_ACTIONS = ("b", "down", "noop")
-WORLD_INTERACT_ACTIONS = ("up", "down", "left", "right", "a", "noop")
 
 
 PHASES: dict[str, PhaseConfig] = {
@@ -107,22 +106,29 @@ PHASES: dict[str, PhaseConfig] = {
     ),
     "phase5b": PhaseConfig(
         id="phase5b",
-        name="Escolher starter",
+        name="Ir ate a frente da Pokebola",
         state="phase5b_start.state",
-        model="models/phase5b_choose_starter.zip",
+        model="models/phase5b_to_pokeball.zip",
         max_steps=1200,
-        rewards=("waypoint", "party"),
+        rewards=("waypoint", "target_position"),
+        success="target_position",
+        target_map=40,
+        target_x=6,
+        target_y=4,
+        blocked_move_penalty=-0.03,
+        actions=MOVE_ACTIONS,
+        save_actions=("up",),
+    ),
+    "phase5c": PhaseConfig(
+        id="phase5c",
+        name="Escolher starter",
+        state="phase5c_start.state",
+        model="models/phase5c_choose_starter.zip",
+        max_steps=800,
+        rewards=("dialog", "party"),
         success="party_count_increase",
         target_map=40,
-        blocked_move_penalty=-0.03,
-        actions=WORLD_INTERACT_ACTIONS,
-        waypoints=(
-            (40, 5, 3),
-            (40, 5, 4),
-            (40, 6, 4),
-            (40, 7, 4),
-            (40, 8, 4),
-        ),
+        actions=DIALOG_CONFIRM_ACTIONS,
     ),
     "phase6": PhaseConfig(
         id="phase6",

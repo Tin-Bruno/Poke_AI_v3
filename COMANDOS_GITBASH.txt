@@ -194,27 +194,49 @@ Se passar, salvar a phase5b:
 python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5b_start.state
 
 
-13) Phase5b - escolher starter
-------------------------------
+13) Phase5b - ir ate a frente da Pokebola
+-----------------------------------------
 
-A phase5b comeca em map=40 x=5 y=3 e usa movimento + A/noop. Aqui o A e para
-interagir com a Pokebola e confirmar a escolha. O B fica fora para nao misturar
-dialogo com interacao.
+A phase5b comeca em map=40 x=5 y=3 e usa somente movimento/noop.
+Ela termina em:
+
+map=40 x=8 y=4
+
+Aqui ainda nao aperta A. A escolha do Pokemon fica para a phase5c.
 
 Treinar rapido com 6 PyBoys:
 
-python scripts/train_phase.py --phase phase5b --timesteps 200000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
+python scripts/train_phase.py --phase phase5b --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
 
 Assistir:
 
-python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode ram --delay 0.3
+python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase5c:
+
+python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5c_start.state
+
+
+14) Phase5c - escolher starter
+------------------------------
+
+A phase5c comeca na frente da Pokebola e usa A/B/noop.
+Ela termina quando party_count sobe de 0 para 1.
+
+Treinar rapido com 6 PyBoys:
+
+python scripts/train_phase.py --phase phase5c --timesteps 200000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase5c --window SDL2 --observation-mode ram --delay 0.3
 
 Se passar, salvar a phase6:
 
-python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase6_start.state
+python scripts/eval_phase.py --phase phase5c --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase6_start.state
 
 
-14) Treinar mais rapido com varios PyBoys
+15) Treinar mais rapido com varios PyBoys
 -----------------------------------------
 
 Use um unico PPO com varios ambientes, em vez de varios PPOs escrevendo no mesmo modelo.
@@ -228,7 +250,7 @@ Para ver a tela, use somente 1 ambiente:
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
 
-15) Controle manual
+16) Controle manual
 -------------------
 
 python scripts/manual_control.py --phase phase1 --window SDL2
@@ -258,7 +280,7 @@ talk 10  (10 vezes B para dialogo)
 wait 60
 
 
-16) Significado dos argumentos mais usados
+17) Significado dos argumentos mais usados
 ------------------------------------------
 
 --phase
@@ -319,7 +341,7 @@ Taxa de aprendizado. No modo v2 usamos 0.0003.
 Bonus de exploracao/entropia. No modo v2 usamos 0.0.
 
 
-17) Fluxo recomendado para cada fase
+18) Fluxo recomendado para cada fase
 ------------------------------------
 
 1. Conferir state:

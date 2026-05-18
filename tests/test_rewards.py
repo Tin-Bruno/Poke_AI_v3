@@ -116,7 +116,7 @@ class PhaseRewardTest(unittest.TestCase):
         self.assertGreaterEqual(reached.value, 1.0)
 
     def test_party_reward_when_party_count_increases(self) -> None:
-        phase = get_phase("phase5b")
+        phase = get_phase("phase5c")
         reward = PartyReward(gained_reward=10.0)
         reward.reset(snap(party_levels=()), phase)
 

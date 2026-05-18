@@ -150,7 +150,8 @@ phase2  sair da casa
 phase3  ativar evento do Professor Oak
 phase4  ser levado ao laboratorio
 phase5  passar dialogo inicial do laboratorio
-phase5b escolher starter
+phase5b ir ate a frente da Pokebola
+phase5c escolher starter
 phase6  passar dialogo do rival
 phase7  vencer primeira batalha
 phase8  sair do laboratorio
