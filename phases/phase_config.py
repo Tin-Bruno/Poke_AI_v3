@@ -159,6 +159,16 @@ PHASES: dict[str, PhaseConfig] = {
             (40, 5, 6),
         ),
     ),
+    "phase7b": PhaseConfig(
+        id="phase7b",
+        name="Vencer primeira batalha",
+        state="phase7b_start.state",
+        model="models/phase7b_first_battle.zip",
+        max_steps=2500,
+        rewards=("battle", "dialog"),
+        success="battle_won",
+        actions=DIALOG_CONFIRM_ACTIONS,
+    ),
     "phase8": PhaseConfig(
         id="phase8",
         name="Sair do laboratorio",

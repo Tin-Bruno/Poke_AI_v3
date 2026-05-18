@@ -49,6 +49,15 @@ def battle_started(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseCo
     return not initial.in_battle and snapshot.in_battle
 
 
+def battle_won(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
+    return (
+        initial.in_battle
+        and not snapshot.in_battle
+        and snapshot.party_count > 0
+        and snapshot.hp_fraction > 0
+    )
+
+
 def badge_count(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return phase.target_badges is not None and snapshot.badge_count >= phase.target_badges
 
@@ -62,6 +71,7 @@ SUCCESS_CONDITIONS: dict[str, SuccessFn] = {
     "party_count_increase": party_count_increase,
     "battle_started": battle_started,
     "badge_count": badge_count,
+    "battle_won": battle_won,
 }
 
 
