@@ -22,6 +22,7 @@ class PhaseConfig:
     target_badges: int | None = None
     blocked_move_penalty: float = 0.0
     actions: tuple[str, ...] | None = None
+    waypoints: tuple[tuple[int, int, int], ...] = ()
 
 
 PHASES: dict[str, PhaseConfig] = {
@@ -58,8 +59,14 @@ PHASES: dict[str, PhaseConfig] = {
         state="phase3_start.state",
         model="models/phase3_oak_event.zip",
         max_steps=600,
-        rewards=("new_map",),
-        success="dialog_or_map_change",
+        rewards=("waypoint", "dialog"),
+        success="event_count_increase",
+        target_map=0,
+        target_x=10,
+        target_y=1,
+        blocked_move_penalty=-0.03,
+        actions=("up", "down", "left", "right", "noop"),
+        waypoints=((0, 8, 2), (0, 10, 2), (0, 10, 1)),
     ),
     "phase4": PhaseConfig(
         id="phase4",

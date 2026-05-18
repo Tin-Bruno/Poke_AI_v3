@@ -42,6 +42,8 @@ Treino vendo a tela:
 
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
+Durante o treino, aperte q no terminal para interromper e salvar o modelo.
+
 Treino com parametros iguais ao projeto v2:
 
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window null --batch-size 64 --gamma 0.95 --n-epochs 10 --learning-rate 0.0003 --ent-coef 0.0
@@ -78,6 +80,8 @@ Para ver o treino na tela:
 
 python scripts/train_phase.py --phase phase2 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
+Durante o treino, aperte q no terminal para interromper e salvar o modelo.
+
 
 8) Avaliar phase2
 -----------------
@@ -97,7 +101,37 @@ python scripts/find_phase_path.py --phase phase1 --max-depth 80
 python scripts/find_phase_path.py --phase phase2 --max-depth 80
 
 
-10) Controle manual
+10) Phase3 - evento do Professor Oak
+------------------------------------
+
+A rota real encontrada do phase3_start.state ate o evento e:
+
+dddwwwwddw
+
+Ou seja:
+
+right right right up up up up right right up
+
+A phase3 usa waypoints para ensinar essa curva:
+
+map=0 x=8  y=2
+map=0 x=10 y=2
+map=0 x=10 y=1
+
+Treinar:
+
+python scripts/train_phase.py --phase phase3 --timesteps 100000 --observation-mode coords --window null
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase4:
+
+python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase4_start.state
+
+
+11) Controle manual
 -------------------
 
 python scripts/manual_control.py --phase phase1 --window SDL2
@@ -127,7 +161,7 @@ talk 10
 wait 60
 
 
-11) Significado dos argumentos mais usados
+12) Significado dos argumentos mais usados
 ------------------------------------------
 
 --phase
@@ -165,6 +199,10 @@ Frames segurando cada botao. Aumentar deixa cada toque mais longo.
 --n-envs 1 --vec-env dummy
 Forca um unico ambiente. Use quando quiser ver a tela no treino.
 
+--stop-key-check-freq
+Frequencia em timesteps para checar se q foi apertado durante o treino.
+Default atual: 500.
+
 --batch-size
 Tamanho do batch do PPO. No modo v2 usamos 64.
 
@@ -181,7 +219,7 @@ Taxa de aprendizado. No modo v2 usamos 0.0003.
 Bonus de exploracao/entropia. No modo v2 usamos 0.0.
 
 
-12) Fluxo recomendado para cada fase
+13) Fluxo recomendado para cada fase
 ------------------------------------
 
 1. Conferir state:

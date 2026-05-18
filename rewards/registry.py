@@ -10,10 +10,12 @@ from rewards.dialog_reward import DialogReward
 from rewards.new_map_reward import NewMapReward
 from rewards.target_map_reward import TargetMapReward
 from rewards.target_position_reward import TargetPositionReward
+from rewards.waypoint_reward import WaypointReward
 
 
 REWARD_REGISTRY: dict[str, type[RewardComponent]] = {
     "target_position": TargetPositionReward,
+    "waypoint": WaypointReward,
     "target_map": TargetMapReward,
     "new_map": NewMapReward,
     "dialog": DialogReward,

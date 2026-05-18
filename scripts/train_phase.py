@@ -18,6 +18,39 @@ from phases import get_phase
 from project_config import env_float, env_int, env_str, load_dotenv
 
 
+def should_stop_training() -> bool:
+    try:
+        import msvcrt
+    except ImportError:
+        return False
+
+    if not msvcrt.kbhit():
+        return False
+
+    key = msvcrt.getch()
+    if key in (b"\x00", b"\xe0"):
+        if msvcrt.kbhit():
+            msvcrt.getch()
+        return False
+
+    return key.decode("utf-8", errors="ignore").lower() == "q"
+
+
+class StopOnQCallback(BaseCallback):
+    def __init__(self, check_freq: int = 500) -> None:
+        super().__init__()
+        self.check_freq = max(1, check_freq)
+
+    def _on_step(self) -> bool:
+        if self.num_timesteps % self.check_freq != 0:
+            return True
+        if not should_stop_training():
+            return True
+        print("")
+        print("Treino interrompido pelo usuario com Q. Salvando modelo...")
+        return False
+
+
 class PhaseStatsCallback(BaseCallback):
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
@@ -59,6 +92,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gamma", type=float, default=env_float("POKE_PPO_GAMMA", 0.95))
     parser.add_argument("--n-epochs", type=int, default=env_int("POKE_PPO_N_EPOCHS", 10))
     parser.add_argument("--ent-coef", type=float, default=env_float("POKE_PPO_ENT_COEF", 0.0))
+    parser.add_argument(
+        "--stop-key-check-freq",
+        type=int,
+        default=env_int("POKE_STOP_KEY_CHECK_FREQ", 500),
+        help="Frequencia em timesteps para checar se Q foi apertado no terminal.",
+    )
     parser.add_argument("--checkpoint-dir", default=runs_dir / "checkpoints")
     parser.add_argument("--tensorboard-dir", default=runs_dir / "tensorboard")
     args = parser.parse_args()
@@ -111,6 +150,7 @@ def main() -> None:
                 name_prefix=phase.id,
             ),
             PhaseStatsCallback(),
+            StopOnQCallback(check_freq=args.stop_key_check_freq),
         ]
     )
 
@@ -126,10 +166,13 @@ def main() -> None:
         ent_coef=args.ent_coef,
         tensorboard_log=args.tensorboard_dir,
     )
-    model.learn(total_timesteps=args.timesteps, callback=callbacks, tb_log_name=phase.id)
-    model.save(phase.model)
-    env.close()
-    print(f"Modelo salvo: {phase.model}")
+    try:
+        print("Pressione Q no terminal para interromper e salvar.")
+        model.learn(total_timesteps=args.timesteps, callback=callbacks, tb_log_name=phase.id)
+    finally:
+        model.save(phase.model)
+        env.close()
+        print(f"Modelo salvo: {phase.model}")
 
 
 if __name__ == "__main__":

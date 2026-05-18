@@ -7,6 +7,7 @@ from phases.phase_config import PhaseConfig, get_phase
 from rewards import make_reward
 from rewards.dialog_reward import DialogReward
 from rewards.target_position_reward import TargetPositionReward
+from rewards.waypoint_reward import WaypointReward
 
 
 def snap(
@@ -91,6 +92,27 @@ class PhaseRewardTest(unittest.TestCase):
 
         self.assertGreater(result.value, 0)
         self.assertTrue(result.progress)
+
+    def test_waypoint_reward_advances_to_next_point(self) -> None:
+        phase = PhaseConfig(
+            id="test",
+            name="Teste waypoints",
+            state="test.state",
+            model="models/test.zip",
+            max_steps=10,
+            rewards=("waypoint",),
+            success="event_count_increase",
+            waypoints=((1, 3, 1), (1, 4, 1)),
+        )
+        reward = WaypointReward(closer_reward=0.1, reached_reward=1.0)
+        reward.reset(snap(map_id=1, x=1, y=1), phase)
+
+        closer = reward.step(snap(map_id=1, x=2, y=1), phase)
+        reached = reward.step(snap(map_id=1, x=3, y=1), phase)
+
+        self.assertGreater(closer.value, 0)
+        self.assertEqual(reached.terms["waypoint_index"], 1)
+        self.assertGreaterEqual(reached.value, 1.0)
 
 
 if __name__ == "__main__":

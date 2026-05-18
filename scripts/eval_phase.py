@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,8 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 from envs import PokemonRedEnv
 from phases import get_phase
 from project_config import env_float, env_int, env_str, load_dotenv
+
+warnings.filterwarnings("ignore", message="Using SDL2 binaries from pysdl2-dll.*")
 
 
 def should_stop_eval() -> bool:
@@ -108,29 +111,22 @@ def main() -> None:
         env = VecFrameStack(env, n_stack=4, channels_order="first")
 
     try:
-        try:
-            model = PPO.load(model_path, env=env)
-        except ValueError as exc:
-            raise SystemExit(
-                "Nao foi possivel carregar o modelo com a observacao atual. "
-                "Isso normalmente acontece depois de mudar observacao, acoes ou rewards. "
-                f"Treine novamente com: python scripts/train_phase.py --phase {phase.id} --timesteps 100000\n"
-                f"Detalhe: {exc}"
-            ) from exc
+        model = load_model(model_path, phase)
 
         obs = env.reset()
         final_info = {}
+        stop_reason = "limite de steps"
 
         for _ in range(args.steps):
             if should_stop_eval():
-                print("Avaliacao interrompida pelo usuario com Q.")
+                stop_reason = "interrompido com q"
                 break
 
             action, _ = model.predict(obs, deterministic=not args.stochastic)
             obs, rewards, dones, infos = env.step(action)
             final_info = infos[0]
             if final_info.get("success"):
-                print(f"Sucesso na fase {phase.id}: {phase.name}")
+                stop_reason = "sucesso"
                 if args.save_success_state:
                     raise SystemExit(
                         "Salvar state de sucesso em observation_mode=screen nao e suportado "
@@ -138,13 +134,13 @@ def main() -> None:
                     )
                 break
             if dones[0]:
+                stop_reason = "episodio encerrado"
                 break
             if interruptible_delay(args.delay):
-                print("Avaliacao interrompida pelo usuario com Q.")
+                stop_reason = "interrompido com q"
                 break
 
-        info_to_print = final_info if args.full_info else compact_info(final_info)
-        print(f"Info final: {info_to_print}")
+        print_final_summary(phase, final_info, stop_reason, args.full_info)
     finally:
         env.close()
 
@@ -162,22 +158,16 @@ def eval_raw_env(args: argparse.Namespace, phase, model_path: str | Path) -> Non
         reward_scale=args.reward_scale,
     )
     try:
-        try:
-            model = PPO.load(model_path, env=env)
-        except ValueError as exc:
-            raise SystemExit(
-                "Nao foi possivel carregar o modelo com a observacao atual. "
-                "Isso normalmente acontece depois de mudar observacao, acoes ou rewards. "
-                f"Treine novamente com: python scripts/train_phase.py --phase {phase.id} --timesteps 100000\n"
-                f"Detalhe: {exc}"
-            ) from exc
+        model = load_model(model_path, phase)
 
         obs, _ = env.reset()
         final_info = {}
+        stop_reason = "limite de steps"
+        saved_state = None
 
         for _ in range(args.steps):
             if should_stop_eval():
-                print("Avaliacao interrompida pelo usuario com Q.")
+                stop_reason = "interrompido com q"
                 break
 
             action, _ = model.predict(obs, deterministic=not args.stochastic)
@@ -185,28 +175,66 @@ def eval_raw_env(args: argparse.Namespace, phase, model_path: str | Path) -> Non
             final_info = info
 
             if final_info.get("success"):
-                print(f"Sucesso na fase {phase.id}: {phase.name}")
+                stop_reason = "sucesso"
                 if args.save_success_state:
                     env.wait(args.save_wait_frames)
                     env.save_state(Path(args.save_success_state))
-                    print(f"Proximo state salvo: {args.save_success_state}")
+                    saved_state = args.save_success_state
                 break
             if terminated or truncated:
+                stop_reason = "timeout sem progresso" if info.get("no_progress_timeout") else "episodio encerrado"
                 break
             if interruptible_delay(args.delay):
-                print("Avaliacao interrompida pelo usuario com Q.")
+                stop_reason = "interrompido com q"
                 break
 
-        info_to_print = final_info if args.full_info else compact_info(final_info)
-        print(f"Info final: {info_to_print}")
+        print_final_summary(phase, final_info, stop_reason, args.full_info, saved_state)
     finally:
         env.close()
 
 
-def unwrap_raw_env(env):
-    if hasattr(env, "venv"):
-        return env.venv.envs[0]
-    return env.envs[0]
+def load_model(model_path: str | Path, phase) -> PPO:
+    try:
+        return PPO.load(model_path)
+    except ValueError as exc:
+        raise SystemExit(
+            "Nao foi possivel carregar o modelo. "
+            "Isso normalmente acontece depois de mudar observacao, acoes ou rewards. "
+            f"Treine novamente com: python scripts/train_phase.py --phase {phase.id} --timesteps 100000\n"
+            f"Detalhe: {exc}"
+        ) from exc
+
+
+def print_final_summary(
+    phase,
+    info: dict,
+    stop_reason: str,
+    full_info: bool,
+    saved_state: str | None = None,
+) -> None:
+    compact = compact_info(info)
+    status = "SUCESSO" if compact["success"] else "PAROU"
+    reward = compact["reward_scaled"]
+    reward_text = "n/a" if reward is None else f"{reward:.3f}"
+
+    print("")
+    print("=== Avaliacao final ===")
+    print(f"Fase:        {phase.id} - {phase.name}")
+    print(f"Status:      {status}")
+    print(f"Motivo:      {stop_reason}")
+    print(f"Passos:      {compact['step_count']}")
+    print(f"Posicao:     map={compact['map_id']} x={compact['x']} y={compact['y']}")
+    print(f"Acao final:  {compact['action']}")
+    print(f"Reward:      {reward_text}")
+    print(f"Vistos:      {compact['seen_coords']} coords")
+    if compact["no_progress_timeout"]:
+        print("Timeout:     sem progresso")
+    if saved_state:
+        print(f"State salvo: {saved_state}")
+    print("=======================")
+
+    if full_info:
+        print(f"Info completo: {info}")
 
 
 def compact_info(info: dict) -> dict:
