@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument(
         "--observation-mode",
-        choices=("coords", "screen", "multi"),
+        choices=("coords", "ram", "screen", "multi"),
         default=env_str("POKE_OBSERVATION_MODE", "coords"),
     )
     parser.add_argument("--frame-stacks", type=int, default=env_int("POKE_FRAME_STACKS", 3))
@@ -179,6 +179,7 @@ def eval_raw_env(args: argparse.Namespace, phase, model_path: str | Path) -> Non
             if final_info.get("success"):
                 stop_reason = "sucesso"
                 if args.save_success_state:
+                    run_save_actions(env, phase)
                     env.wait(args.save_wait_frames)
                     env.save_state(Path(args.save_success_state))
                     saved_state = args.save_success_state
@@ -193,6 +194,16 @@ def eval_raw_env(args: argparse.Namespace, phase, model_path: str | Path) -> Non
         print_final_summary(phase, final_info, stop_reason, args.full_info, saved_state)
     finally:
         env.close()
+
+
+def run_save_actions(env: PokemonRedEnv, phase) -> None:
+    for action_name in phase.save_actions:
+        if action_name not in env.actions:
+            raise SystemExit(
+                f"A fase {phase.id} pediu save_actions={phase.save_actions}, "
+                f"mas as acoes disponiveis sao {env.actions}."
+            )
+        env.step(env.actions.index(action_name))
 
 
 def load_model(model_path: str | Path, phase) -> PPO:

@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--steps", type=int, default=200)
     parser.add_argument(
         "--observation-mode",
-        choices=("coords", "screen", "multi"),
+        choices=("coords", "ram", "screen", "multi"),
         default=env_str("POKE_OBSERVATION_MODE", "coords"),
     )
     parser.add_argument("--action-frames", type=int, default=env_int("POKE_ACTION_FRAMES", 12))

@@ -123,7 +123,7 @@ No modo scripted:
 
 ```text
 u        START
-talk 20  aperta A com pausa de dialogo
+talk 20  aperta B com pausa de dialogo
 wait 60  espera 60 frames
 save logs/rom_test.state
 q        sair
@@ -149,7 +149,8 @@ phase1  sair do quarto
 phase2  sair da casa
 phase3  ativar evento do Professor Oak
 phase4  ser levado ao laboratorio
-phase5  escolher starter
+phase5  passar dialogo inicial do laboratorio
+phase5b escolher starter
 phase6  passar dialogo do rival
 phase7  vencer primeira batalha
 phase8  sair do laboratorio
@@ -184,7 +185,7 @@ Comandos do manual:
 w/a/s/d mover
 j=A, k=B, u=START, i=SELECT
 p imprimir RAM
-talk 10 avanca dialogo apertando A com pausa
+talk 10 avanca dialogo apertando B com pausa
 wait 60 espera 60 frames
 save states/phase1_start.state
 q sair
@@ -202,7 +203,8 @@ ddddww
 No Git Bash esse modo costuma ser melhor que captura de tecla unica, porque evita
 fila gigante de tecla repetida no terminal.
 
-Para dialogos, prefira `talk` em vez de `10j`, porque ele espera mais entre cada A:
+Para dialogos, prefira `talk` em vez de `10k`, porque ele espera mais entre cada B.
+Use `j`/A para interagir com objeto ou NPC no mundo:
 
 ```text
 talk 10

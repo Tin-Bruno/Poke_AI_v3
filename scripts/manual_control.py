@@ -110,7 +110,7 @@ def main() -> None:
 
     print("Comandos: w/a/s/d mover, j=A, k=B, u=START, i=SELECT, .=noop")
     print("Digite sequencias e aperte Enter. Exemplos: jjjj, ddddww, 10j, 5d")
-    print("dialogo: talk 10 ou t 10 aperta A com pausa maior")
+    print("dialogo: talk 10 ou t 10 aperta B com pausa maior")
     print("p=RAM, save [arquivo.state]=salvar, q=sair")
 
     try:
@@ -195,7 +195,7 @@ def run_sequence_mode(
             count = parse_count_command(command, default=10)
             run_dialog_mash(stepper, count, args.dialog_wait_frames)
             action_count += count
-            print(f"{count} A de dialogo executados.")
+            print(f"{count} B de dialogo executados.")
             continue
         if command.startswith("wait"):
             count = parse_count_command(command, default=60)
@@ -250,7 +250,7 @@ def parse_count_command(command: str, default: int) -> int:
 
 def run_dialog_mash(stepper: StepHandler, count: int, dialog_wait_frames: int) -> None:
     for _ in range(count):
-        stepper.run(ACTIONS.index("a"))
+        stepper.run(ACTIONS.index("b"))
         stepper.wait(dialog_wait_frames)
 
 

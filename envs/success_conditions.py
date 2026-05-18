@@ -24,6 +24,16 @@ def target_position(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseC
     return distance <= phase.target_radius
 
 
+def target_position_after_event_count(
+    snapshot: GameSnapshot,
+    initial: GameSnapshot,
+    phase: PhaseConfig,
+) -> bool:
+    required_delta = max(1, phase.target_event_count_delta)
+    has_event_progress = snapshot.event_count >= initial.event_count + required_delta
+    return has_event_progress and target_position(snapshot, initial, phase)
+
+
 def dialog_or_map_change(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return snapshot.event_count > initial.event_count or snapshot.map_id != initial.map_id
 
@@ -31,8 +41,10 @@ def dialog_or_map_change(snapshot: GameSnapshot, initial: GameSnapshot, phase: P
 def event_count_increase(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return snapshot.event_count > initial.event_count
 
+
 def party_count_increase(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return snapshot.party_count > initial.party_count
+
 
 def badge_count(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return phase.target_badges is not None and snapshot.badge_count >= phase.target_badges
@@ -41,6 +53,7 @@ def badge_count(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfi
 SUCCESS_CONDITIONS: dict[str, SuccessFn] = {
     "target_map": target_map,
     "target_position": target_position,
+    "target_position_after_event_count": target_position_after_event_count,
     "dialog_or_map_change": dialog_or_map_change,
     "event_count_increase": event_count_increase,
     "party_count_increase": party_count_increase,

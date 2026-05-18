@@ -122,7 +122,7 @@ def run_scripted(pyboy, stepper: StepHandler, args: argparse.Namespace) -> None:
     print("Modo scripted: sem state, botoes pelo terminal.")
     print("Comandos: j=A, k=B, u=START, i=SELECT, w/a/s/d mover")
     print("Sequencias: jjjj, 10j, ddddww")
-    print("Dialogo: talk 10 ou t 10")
+    print("Dialogo: talk 10 ou t 10 aperta B com pausa maior")
     print("Outros: wait 60, save logs/rom_test.state, q")
     print("")
 
@@ -139,7 +139,7 @@ def run_scripted(pyboy, stepper: StepHandler, args: argparse.Namespace) -> None:
         if command.startswith("talk") or command.startswith("t "):
             count = parse_count_command(command, default=10)
             run_dialog_mash(stepper, count, args.dialog_wait_frames)
-            print(f"{count} A de dialogo executados.")
+            print(f"{count} B de dialogo executados.")
             continue
         if command.startswith("wait"):
             frames = parse_count_command(command, default=60)
@@ -210,7 +210,7 @@ def parse_count_command(command: str, default: int) -> int:
 
 def run_dialog_mash(stepper: StepHandler, count: int, dialog_wait_frames: int) -> None:
     for _ in range(count):
-        stepper.run(ACTIONS.index("a"))
+        stepper.run(ACTIONS.index("b"))
         stepper.wait(dialog_wait_frames)
 
 

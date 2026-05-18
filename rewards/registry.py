@@ -8,6 +8,7 @@ from rewards.base import RewardComponent
 from rewards.battle_reward import BattleReward
 from rewards.dialog_reward import DialogReward
 from rewards.new_map_reward import NewMapReward
+from rewards.party_reward import PartyReward
 from rewards.target_map_reward import TargetMapReward
 from rewards.target_position_reward import TargetPositionReward
 from rewards.waypoint_reward import WaypointReward
@@ -20,6 +21,7 @@ REWARD_REGISTRY: dict[str, type[RewardComponent]] = {
     "new_map": NewMapReward,
     "dialog": DialogReward,
     "battle": BattleReward,
+    "party": PartyReward,
 }
 
 

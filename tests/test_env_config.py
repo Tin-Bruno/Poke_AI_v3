@@ -4,6 +4,13 @@ import unittest
 
 from envs import PokemonRedEnv
 from phases import get_phase
+from phases.phase_config import (
+    DIALOG_ACTIONS,
+    DIALOG_CONFIRM_ACTIONS,
+    DIALOG_RELEASE_ACTIONS,
+    MOVE_ACTIONS,
+    WORLD_INTERACT_ACTIONS,
+)
 
 
 class EnvConfigTest(unittest.TestCase):
@@ -17,9 +24,17 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(env.observation_space.shape, (3,))
         self.assertEqual(env.observation_space.dtype.name, "uint8")
 
-    def test_movement_phases_use_small_action_set(self) -> None:
-        expected_actions = ("up", "down", "left", "right", "noop")
+    def test_ram_observation_adds_event_and_party_state(self) -> None:
+        env = PokemonRedEnv(
+            rom_path="missing.gb",
+            phase=get_phase("phase5"),
+            observation_mode="ram",
+        )
 
+        self.assertEqual(env.observation_space.shape, (6,))
+        self.assertEqual(env.observation_space.dtype.name, "float32")
+
+    def test_movement_phases_use_small_action_set(self) -> None:
         env = PokemonRedEnv(
             rom_path="missing.gb",
             phase=get_phase("phase1"),
@@ -36,12 +51,24 @@ class EnvConfigTest(unittest.TestCase):
             observation_mode="coords",
         )
 
-        self.assertEqual(env.actions, expected_actions)
+        self.assertEqual(env.actions, MOVE_ACTIONS)
         self.assertEqual(env.action_space.n, 5)
-        self.assertEqual(phase2_env.actions, expected_actions)
+        self.assertEqual(phase2_env.actions, MOVE_ACTIONS)
         self.assertEqual(phase2_env.action_space.n, 5)
-        self.assertEqual(phase3_env.actions, expected_actions)
+        self.assertEqual(phase3_env.actions, MOVE_ACTIONS)
         self.assertEqual(phase3_env.action_space.n, 5)
+
+    def test_dialog_phases_use_b_instead_of_a_when_no_confirm_is_needed(self) -> None:
+        self.assertEqual(get_phase("phase6").actions, DIALOG_ACTIONS)
+
+    def test_phase4_uses_a_and_b_for_oak_event_confirmation(self) -> None:
+        self.assertEqual(get_phase("phase4").actions, DIALOG_CONFIRM_ACTIONS)
+
+    def test_phase5_uses_b_then_down_to_prove_control(self) -> None:
+        self.assertEqual(get_phase("phase5").actions, DIALOG_RELEASE_ACTIONS)
+
+    def test_world_interaction_phase_uses_a_without_b(self) -> None:
+        self.assertEqual(get_phase("phase5b").actions, WORLD_INTERACT_ACTIONS)
 
     def test_phase3_success_requires_event_progress(self) -> None:
         phase = get_phase("phase3")
@@ -52,7 +79,7 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(phase.rewards, ("waypoint", "dialog"))
         self.assertEqual(phase.waypoints, ((0, 8, 2), (0, 10, 2), (0, 10, 1)))
 
-    def test_phase4_success_requires_lab_dialog_destination(self) -> None:
+    def test_phase4_success_requires_entering_lab(self) -> None:
         phase = get_phase("phase4")
         env = PokemonRedEnv(
             rom_path="missing.gb",
@@ -60,11 +87,32 @@ class EnvConfigTest(unittest.TestCase):
             observation_mode="coords",
         )
 
-        self.assertEqual(phase.success, "target_position")
-        self.assertEqual(phase.rewards, ("target_position", "dialog"))
+        self.assertEqual(phase.success, "target_map")
+        self.assertEqual(phase.rewards, ("target_map", "dialog"))
         self.assertEqual(phase.target_map, 40)
-        self.assertEqual((phase.target_x, phase.target_y), (5, 11))
-        self.assertEqual(env.actions, ("a", "b", "noop"))
+        self.assertIsNone(phase.target_x)
+        self.assertIsNone(phase.target_y)
+        self.assertEqual(env.actions, DIALOG_CONFIRM_ACTIONS)
+
+    def test_phase5_stops_after_initial_lab_dialog(self) -> None:
+        phase = get_phase("phase5")
+
+        self.assertEqual(phase.success, "target_position_after_event_count")
+        self.assertEqual(phase.rewards, ("dialog", "target_position"))
+        self.assertEqual((phase.target_x, phase.target_y), (5, 3))
+        self.assertEqual(phase.target_event_count_delta, 3)
+        self.assertEqual(phase.waypoints, ())
+        self.assertEqual(phase.actions, DIALOG_RELEASE_ACTIONS)
+        self.assertEqual(phase.save_actions, ("b",))
+
+    def test_phase5b_rewards_starter_pickup(self) -> None:
+        phase = get_phase("phase5b")
+
+        self.assertEqual(phase.success, "party_count_increase")
+        self.assertEqual(phase.rewards, ("waypoint", "party"))
+        self.assertEqual(phase.waypoints[0], (40, 5, 3))
+        self.assertEqual(phase.waypoints[-1], (40, 8, 4))
+        self.assertEqual(phase.actions, WORLD_INTERACT_ACTIONS)
 
 
 if __name__ == "__main__":

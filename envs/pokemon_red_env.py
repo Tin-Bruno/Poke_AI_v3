@@ -199,6 +199,9 @@ class PokemonRedEnv(gym.Env):
         if self.observation_mode == "coords":
             return spaces.Box(low=0, high=255, shape=(3,), dtype=np.uint8)
 
+        if self.observation_mode == "ram":
+            return spaces.Box(low=0.0, high=1.0, shape=(6,), dtype=np.float32)
+
         if self.observation_mode == "screen":
             return spaces.Box(low=0, high=255, shape=(1, 72, 80), dtype=np.uint8)
 
@@ -226,11 +229,24 @@ class PokemonRedEnv(gym.Env):
                 }
             )
 
-        raise ValueError("observation_mode deve ser 'coords', 'screen' ou 'multi'")
+        raise ValueError("observation_mode deve ser 'coords', 'ram', 'screen' ou 'multi'")
 
     def _observation(self, snapshot: GameSnapshot) -> Observation:
         if self.observation_mode == "coords":
             return np.array([snapshot.map_id, snapshot.x, snapshot.y], dtype=np.uint8)
+
+        if self.observation_mode == "ram":
+            return np.array(
+                [
+                    np.clip(snapshot.map_id / 255.0, 0.0, 1.0),
+                    np.clip(snapshot.x / 255.0, 0.0, 1.0),
+                    np.clip(snapshot.y / 255.0, 0.0, 1.0),
+                    np.clip(snapshot.event_count / 255.0, 0.0, 1.0),
+                    np.clip(snapshot.party_count / 6.0, 0.0, 1.0),
+                    1.0 if snapshot.in_battle else 0.0,
+                ],
+                dtype=np.float32,
+            )
 
         screen = self._screen_observation()[0]
         if self.observation_mode == "screen":

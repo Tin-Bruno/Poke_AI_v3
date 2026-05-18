@@ -6,6 +6,7 @@ from memory.ram_map import GameSnapshot
 from phases.phase_config import PhaseConfig, get_phase
 from rewards import make_reward
 from rewards.dialog_reward import DialogReward
+from rewards.party_reward import PartyReward
 from rewards.target_position_reward import TargetPositionReward
 from rewards.waypoint_reward import WaypointReward
 
@@ -113,6 +114,16 @@ class PhaseRewardTest(unittest.TestCase):
         self.assertGreater(closer.value, 0)
         self.assertEqual(reached.terms["waypoint_index"], 1)
         self.assertGreaterEqual(reached.value, 1.0)
+
+    def test_party_reward_when_party_count_increases(self) -> None:
+        phase = get_phase("phase5b")
+        reward = PartyReward(gained_reward=10.0)
+        reward.reset(snap(party_levels=()), phase)
+
+        result = reward.step(snap(party_levels=(5,)), phase)
+
+        self.assertEqual(result.value, 10.0)
+        self.assertTrue(result.progress)
 
 
 if __name__ == "__main__":

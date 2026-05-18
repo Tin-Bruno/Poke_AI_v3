@@ -12,7 +12,14 @@ source .venv/Scripts/activate
 
 python -m unittest discover -s tests -v
 
-python -m py_compile project_config.py envs/pokemon_red_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py
+python -m py_compile project_config.py envs/pokemon_red_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py rewards/waypoint_reward.py rewards/party_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py scripts/manual_control.py scripts/test_rom.py
+
+
+Regra dos botoes nas fases:
+
+B = passar dialogo/menu.
+A = interagir com objeto/NPC no mundo.
+A+B = eventos que precisam confirmar fala/interacao, como a phase4 do Oak.
 
 
 3) Ver RAM de uma fase/state
@@ -29,6 +36,10 @@ python scripts/view_ram.py --phase phase2 --window null
 python scripts/test_env.py --phase phase1 --steps 40 --window null --observation-mode coords
 
 python scripts/test_env.py --phase phase2 --steps 40 --window null --observation-mode coords
+
+Testar sequencia sem sobrescrever states oficiais:
+
+python scripts/eval_sequence.py --through phase5 --window null --observation-mode coords --steps 2000
 
 
 5) Treinar phase1
@@ -134,11 +145,14 @@ python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coo
 11) Phase4 - ser levado ao laboratorio
 --------------------------------------
 
-A phase4 termina somente quando chegar ao ponto correto dentro do laboratorio:
+A phase4 termina quando entrar no laboratorio:
 
-map=40 x=5 y=11
+map=40
 
-Ela nao termina mais apenas por entrar no laboratorio.
+A conversa e o controle dentro do laboratorio ficam para a phase5.
+
+A phase4 usa A/B/noop, porque o evento do Oak precisa confirmar a fala para
+continuar o script.
 
 Treinar:
 
@@ -153,7 +167,54 @@ Se passar, salvar a phase5:
 python scripts/eval_phase.py --phase phase4 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5_start.state
 
 
-12) Treinar mais rapido com varios PyBoys
+12) Phase5 - passar dialogo inicial do laboratorio
+--------------------------------------------------
+
+A phase5 usa B/down/noop. O principal aqui e o B passar o dialogo. Ela termina em:
+
+map=40 x=5 y=3
+
+Importante: ela so conta sucesso nesse ponto depois que o event_count subir 3 vezes.
+Assim, passar pelo mesmo ponto antes do final real do dialogo nao encerra a fase.
+Ao salvar o state de sucesso, o eval aperta 1 B extra para liberar o controle antes
+de gravar a phase5b_start.state.
+
+Ela nao usa waypoints; o treino e direto para o alvo final.
+
+Treinar rapido com 6 PyBoys:
+
+python scripts/train_phase.py --phase phase5 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase5b:
+
+python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5b_start.state
+
+
+13) Phase5b - escolher starter
+------------------------------
+
+A phase5b comeca em map=40 x=5 y=3 e usa movimento + A/noop. Aqui o A e para
+interagir com a Pokebola e confirmar a escolha. O B fica fora para nao misturar
+dialogo com interacao.
+
+Treinar rapido com 6 PyBoys:
+
+python scripts/train_phase.py --phase phase5b --timesteps 200000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode ram --delay 0.3
+
+Se passar, salvar a phase6:
+
+python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase6_start.state
+
+
+14) Treinar mais rapido com varios PyBoys
 -----------------------------------------
 
 Use um unico PPO com varios ambientes, em vez de varios PPOs escrevendo no mesmo modelo.
@@ -167,7 +228,7 @@ Para ver a tela, use somente 1 ambiente:
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
 
-13) Controle manual
+15) Controle manual
 -------------------
 
 python scripts/manual_control.py --phase phase1 --window SDL2
@@ -192,12 +253,12 @@ q = sair
 Exemplos:
 
 ddddww
-10j
-talk 10
+10j  (10 vezes A para interagir)
+talk 10  (10 vezes B para dialogo)
 wait 60
 
 
-14) Significado dos argumentos mais usados
+16) Significado dos argumentos mais usados
 ------------------------------------------
 
 --phase
@@ -208,6 +269,9 @@ Quantidade de passos de treino. Exemplo: --timesteps 20000.
 
 --observation-mode coords
 Usa observacao simples [map_id, x, y]. E o modo inspirado no projeto v2.
+
+--observation-mode ram
+Usa map/x/y/event_count/party_count/in_battle normalizados. Use em fases com dialogo/menu.
 
 --window null
 Roda sem janela. Mais rapido para treinar.
@@ -255,7 +319,7 @@ Taxa de aprendizado. No modo v2 usamos 0.0003.
 Bonus de exploracao/entropia. No modo v2 usamos 0.0.
 
 
-15) Fluxo recomendado para cada fase
+17) Fluxo recomendado para cada fase
 ------------------------------------
 
 1. Conferir state:

@@ -19,10 +19,19 @@ class PhaseConfig:
     target_x: int | None = None
     target_y: int | None = None
     target_radius: int = 0
+    target_event_count_delta: int = 1
     target_badges: int | None = None
     blocked_move_penalty: float = 0.0
     actions: tuple[str, ...] | None = None
     waypoints: tuple[tuple[int, int, int], ...] = ()
+    save_actions: tuple[str, ...] = ()
+
+
+MOVE_ACTIONS = ("up", "down", "left", "right", "noop")
+DIALOG_ACTIONS = ("b", "noop")
+DIALOG_CONFIRM_ACTIONS = ("a", "b", "noop")
+DIALOG_RELEASE_ACTIONS = ("b", "down", "noop")
+WORLD_INTERACT_ACTIONS = ("up", "down", "left", "right", "a", "noop")
 
 
 PHASES: dict[str, PhaseConfig] = {
@@ -39,7 +48,7 @@ PHASES: dict[str, PhaseConfig] = {
         target_x=7,
         target_y=1,
         blocked_move_penalty=-0.03,
-        actions=("up", "down", "left", "right", "noop"),
+        actions=MOVE_ACTIONS,
     ),
     "phase2": PhaseConfig(
         id="phase2",
@@ -51,7 +60,7 @@ PHASES: dict[str, PhaseConfig] = {
         success="target_map",
         target_map=0,
         blocked_move_penalty=-0.03,
-        actions=("up", "down", "left", "right", "noop"),
+        actions=MOVE_ACTIONS,
     ),
     "phase3": PhaseConfig(
         id="phase3",
@@ -65,7 +74,7 @@ PHASES: dict[str, PhaseConfig] = {
         target_x=10,
         target_y=1,
         blocked_move_penalty=-0.03,
-        actions=("up", "down", "left", "right", "noop"),
+        actions=MOVE_ACTIONS,
         waypoints=((0, 8, 2), (0, 10, 2), (0, 10, 1)),
     ),
     "phase4": PhaseConfig(
@@ -74,29 +83,41 @@ PHASES: dict[str, PhaseConfig] = {
         state="phase4_start.state",
         model="models/phase4_to_lab.zip",
         max_steps=800,
-        rewards=("target_position", "dialog"),
-        success="target_position",
+        rewards=("target_map", "dialog"),
+        success="target_map",
         target_map=40,
-        target_x=5,
-        target_y=11,
         blocked_move_penalty=-0.03,
-        actions=("a", "b", "noop"),
+        actions=DIALOG_CONFIRM_ACTIONS,
     ),
     "phase5": PhaseConfig(
         id="phase5",
-        name="Passar dialogo e escolher starter",
+        name="Passar dialogo inicial do laboratorio",
         state="phase5_start.state",
-        model="models/phase5_choose_starter.zip",
-        max_steps=1800,
-        rewards=("dialog", "waypoint"),
+        model="models/phase5_lab_dialog.zip",
+        max_steps=500,
+        rewards=("dialog", "target_position"),
+        success="target_position_after_event_count",
+        target_map=40,
+        target_x=5,
+        target_y=3,
+        target_event_count_delta=3,
+        blocked_move_penalty=-0.03,
+        actions=DIALOG_RELEASE_ACTIONS,
+        save_actions=("b",),
+    ),
+    "phase5b": PhaseConfig(
+        id="phase5b",
+        name="Escolher starter",
+        state="phase5b_start.state",
+        model="models/phase5b_choose_starter.zip",
+        max_steps=1200,
+        rewards=("waypoint", "party"),
         success="party_count_increase",
         target_map=40,
         blocked_move_penalty=-0.03,
-        actions=("up", "down", "left", "right", "a", "noop"),
+        actions=WORLD_INTERACT_ACTIONS,
         waypoints=(
-            (40, 5, 10),
-            (40, 5, 8),
-            (40, 5, 6),
+            (40, 5, 3),
             (40, 5, 4),
             (40, 6, 4),
             (40, 7, 4),
@@ -111,6 +132,7 @@ PHASES: dict[str, PhaseConfig] = {
         max_steps=800,
         rewards=("dialog",),
         success="dialog_or_map_change",
+        actions=DIALOG_ACTIONS,
     ),
     "phase7": PhaseConfig(
         id="phase7",

@@ -54,11 +54,19 @@ class StopOnQCallback(BaseCallback):
 class PhaseStatsCallback(BaseCallback):
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
-            for key in ("success", "seen_coords", "reward_scaled", "steps_since_progress"):
+            for key in (
+                "success",
+                "seen_coords",
+                "reward_scaled",
+                "steps_since_progress",
+                "waypoint_index",
+                "dialog",
+                "party",
+            ):
                 if key in info:
                     self.logger.record(f"phase/{key}", info[key])
             snapshot = info.get("snapshot", {})
-            for key in ("map_id", "x", "y", "event_count", "hp_fraction"):
+            for key in ("map_id", "x", "y", "event_count", "party_count", "hp_fraction"):
                 if key in snapshot:
                     self.logger.record(f"ram/{key}", snapshot[key])
         return True
@@ -78,7 +86,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--vec-env", choices=("dummy", "subproc"), default=env_str("POKE_VEC_ENV", "dummy"))
     parser.add_argument(
         "--observation-mode",
-        choices=("coords", "screen", "multi"),
+        choices=("coords", "ram", "screen", "multi"),
         default=env_str("POKE_OBSERVATION_MODE", "coords"),
     )
     parser.add_argument("--frame-stacks", type=int, default=env_int("POKE_FRAME_STACKS", 3))
