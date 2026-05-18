@@ -10,7 +10,6 @@ from phases.phase_config import PhaseConfig
 
 SuccessFn = Callable[[GameSnapshot, GameSnapshot, PhaseConfig], bool]
 
-
 def target_map(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return phase.target_map is not None and snapshot.map_id == phase.target_map
 
@@ -46,6 +45,10 @@ def party_count_increase(snapshot: GameSnapshot, initial: GameSnapshot, phase: P
     return snapshot.party_count > initial.party_count
 
 
+def battle_started(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
+    return not initial.in_battle and snapshot.in_battle
+
+
 def badge_count(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
     return phase.target_badges is not None and snapshot.badge_count >= phase.target_badges
 
@@ -57,6 +60,7 @@ SUCCESS_CONDITIONS: dict[str, SuccessFn] = {
     "dialog_or_map_change": dialog_or_map_change,
     "event_count_increase": event_count_increase,
     "party_count_increase": party_count_increase,
+    "battle_started": battle_started,
     "badge_count": badge_count,
 }
 
