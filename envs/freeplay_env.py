@@ -13,7 +13,17 @@ from gymnasium import spaces
 from memory.ram_map import GameSnapshot, PokemonRedRamReader
 from rewards.freeplay_reward import FREEPLAY_RAM_SHAPE, FreeplayReward, snapshot_vector
 
-FREEPLAY_ACTIONS: tuple[tuple[str, ...], ...] = (
+FREEPLAY_SIMPLE_ACTIONS: tuple[tuple[str, ...], ...] = (
+    ("down",),
+    ("left",),
+    ("right",),
+    ("up",),
+    ("a",),
+    ("b",),
+    ("start",),
+)
+
+FREEPLAY_COMBO_ACTIONS: tuple[tuple[str, ...], ...] = (
     (),
     ("up",),
     ("down",),
@@ -33,6 +43,13 @@ FREEPLAY_ACTIONS: tuple[tuple[str, ...], ...] = (
     ("right", "b"),
 )
 
+FREEPLAY_ACTIONS = FREEPLAY_COMBO_ACTIONS
+FREEPLAY_ACTION_SETS = {
+    "simple": FREEPLAY_SIMPLE_ACTIONS,
+    "combo": FREEPLAY_COMBO_ACTIONS,
+}
+RECENT_ACTIONS = 3
+
 
 @dataclass(frozen=True)
 class FreeplayConfig:
@@ -45,6 +62,10 @@ class FreeplayConfig:
     warmup_frames: int = 0
     max_steps: int = 20_000
     stagnation_steps: int = 4_000
+    action_set: str = "simple"
+    memory_observation: bool = True
+    visited_radius: int = 12
+    blocked_move_penalty: float = 0.02
     emulation_speed: float | None = None
 
 
@@ -55,26 +76,42 @@ class FreeplayPokemonRedEnv(gym.Env):
         self,
         config: FreeplayConfig,
         reward_model: FreeplayReward | None = None,
-        actions: tuple[tuple[str, ...], ...] = FREEPLAY_ACTIONS,
+        actions: tuple[tuple[str, ...], ...] | None = None,
     ) -> None:
         super().__init__()
         self.config = config
         self.reward_model = reward_model or FreeplayReward()
-        self.actions = actions
+        self.actions = actions or self._actions_from_config(config.action_set)
         self.action_space = spaces.Discrete(len(self.actions))
-        self.observation_space = spaces.Dict(
-            {
-                "screen": spaces.Box(low=0, high=255, shape=(1, 72, 80), dtype=np.uint8),
-                "ram": spaces.Box(low=0.0, high=1.0, shape=FREEPLAY_RAM_SHAPE, dtype=np.float32),
-            }
-        )
+        observation_spaces: dict[str, spaces.Space] = {
+            "screen": spaces.Box(low=0, high=255, shape=(1, 72, 80), dtype=np.uint8),
+            "ram": spaces.Box(low=0.0, high=1.0, shape=FREEPLAY_RAM_SHAPE, dtype=np.float32),
+        }
+        if self.config.memory_observation:
+            visited_size = max(1, self.config.visited_radius) * 4
+            observation_spaces["visited"] = spaces.Box(
+                low=0,
+                high=255,
+                shape=(1, visited_size, visited_size),
+                dtype=np.uint8,
+            )
+            observation_spaces["recent_actions"] = spaces.Box(
+                low=0.0,
+                high=1.0,
+                shape=(len(self.actions) * RECENT_ACTIONS,),
+                dtype=np.float32,
+            )
+        self.observation_space = spaces.Dict(observation_spaces)
 
         self._pyboy: Any | None = None
         self._reader: PokemonRedRamReader | None = None
         self._step_count = 0
         self._steps_since_progress = 0
         self._best_seen_locations = 0
+        self._visited_coords: set[tuple[int, int, int]] = set()
+        self._recent_actions: list[int | None] = [None] * RECENT_ACTIONS
         self._last_action = "noop"
+        self._last_blocked_penalty = 0.0
 
     def reset(
         self,
@@ -88,13 +125,17 @@ class FreeplayPokemonRedEnv(gym.Env):
         self._step_count = 0
         self._steps_since_progress = 0
         self._best_seen_locations = 0
+        self._visited_coords = set()
+        self._recent_actions = [None] * RECENT_ACTIONS
         self._last_action = "noop"
+        self._last_blocked_penalty = 0.0
 
         if self.config.warmup_frames > 0:
             self._tick_many(self.config.warmup_frames)
 
         snapshot = self._snapshot()
         self.reward_model.reset(snapshot)
+        self._remember_position(snapshot)
         return self._observation(snapshot), self._info(snapshot, reward=0.0)
 
     def step(self, action: int) -> tuple[dict[str, np.ndarray], float, bool, bool, dict[str, Any]]:
@@ -104,10 +145,18 @@ class FreeplayPokemonRedEnv(gym.Env):
         self._step_count += 1
         combo = self.actions[int(action)]
         self._last_action = "+".join(combo) if combo else "noop"
+        previous_snapshot = self._snapshot()
         running = self._run_combo(combo)
 
         snapshot = self._snapshot()
         reward, progress, reward_info = self.reward_model.score(snapshot)
+        blocked_penalty = self._blocked_move_penalty(previous_snapshot, snapshot, combo)
+        if blocked_penalty:
+            reward += blocked_penalty
+            reward_info["reward_blocked_move_penalty"] = blocked_penalty
+        self._last_blocked_penalty = blocked_penalty
+        self._remember_position(snapshot)
+        self._remember_action(int(action))
         seen_locations = int(reward_info.get("seen_locations", 0))
         if progress or seen_locations > self._best_seen_locations:
             self._best_seen_locations = max(self._best_seen_locations, seen_locations)
@@ -164,6 +213,13 @@ class FreeplayPokemonRedEnv(gym.Env):
 
         self._reader = PokemonRedRamReader(self._pyboy)
 
+    def _actions_from_config(self, action_set: str) -> tuple[tuple[str, ...], ...]:
+        try:
+            return FREEPLAY_ACTION_SETS[action_set]
+        except KeyError as exc:
+            valid = ", ".join(sorted(FREEPLAY_ACTION_SETS))
+            raise ValueError(f"action_set invalido: {action_set}. Use: {valid}") from exc
+
     def _check_paths(self) -> None:
         rom_path = Path(self.config.rom_path)
         if not rom_path.exists():
@@ -201,7 +257,56 @@ class FreeplayPokemonRedEnv(gym.Env):
         screen = np.asarray(self._pyboy.screen.ndarray[:, :, :3])
         grayscale = screen.mean(axis=2).astype(np.uint8)
         small = grayscale[::2, ::2][np.newaxis, :, :].copy()
-        return {"screen": small, "ram": snapshot_vector(snapshot)}
+        obs = {"screen": small, "ram": snapshot_vector(snapshot)}
+        if self.config.memory_observation:
+            obs["visited"] = self._visited_patch(snapshot)
+            obs["recent_actions"] = self._recent_actions_vector()
+        return obs
+
+    def _remember_position(self, snapshot: GameSnapshot) -> None:
+        self._visited_coords.add((snapshot.map_id, snapshot.x, snapshot.y))
+
+    def _remember_action(self, action: int) -> None:
+        self._recent_actions = [action, *self._recent_actions[: RECENT_ACTIONS - 1]]
+
+    def _visited_patch(self, snapshot: GameSnapshot) -> np.ndarray:
+        radius = max(1, self.config.visited_radius)
+        patch = np.zeros((radius * 2, radius * 2), dtype=np.uint8)
+        for map_id, x, y in self._visited_coords:
+            if map_id != snapshot.map_id:
+                continue
+            dx = x - snapshot.x
+            dy = y - snapshot.y
+            if -radius <= dx < radius and -radius <= dy < radius:
+                patch[dy + radius, dx + radius] = 255
+        enlarged = np.repeat(np.repeat(patch, 2, axis=0), 2, axis=1)
+        return enlarged[np.newaxis, :, :]
+
+    def _recent_actions_vector(self) -> np.ndarray:
+        vector = np.zeros(len(self.actions) * RECENT_ACTIONS, dtype=np.float32)
+        for index, action in enumerate(self._recent_actions):
+            if action is None:
+                continue
+            vector[index * len(self.actions) + action] = 1.0
+        return vector
+
+    def _blocked_move_penalty(
+        self,
+        before: GameSnapshot,
+        after: GameSnapshot,
+        combo: tuple[str, ...],
+    ) -> float:
+        if self.config.blocked_move_penalty <= 0.0:
+            return 0.0
+        if before.in_battle or after.in_battle:
+            return 0.0
+        if not any(button in {"up", "down", "left", "right"} for button in combo):
+            return 0.0
+        before_pos = (before.map_id, before.x, before.y)
+        after_pos = (after.map_id, after.x, after.y)
+        if before_pos != after_pos:
+            return 0.0
+        return -float(self.config.blocked_move_penalty)
 
     def _info(self, snapshot: GameSnapshot, reward: float) -> dict[str, Any]:
         return {
@@ -217,5 +322,7 @@ class FreeplayPokemonRedEnv(gym.Env):
             "hp_fraction": snapshot.hp_fraction,
             "event_count": snapshot.event_count,
             "in_battle": snapshot.in_battle,
+            "seen_coords": len(self._visited_coords),
+            "blocked_move_penalty": self._last_blocked_penalty,
             "action": self._last_action,
         }

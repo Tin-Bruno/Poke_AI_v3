@@ -129,15 +129,32 @@ python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coo
 
 Treinar freeplay a partir desse state:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
+
+O freeplay novo usa por padrao a abordagem inspirada no PokemonRedExperiments v2:
+
+--action-set simple
+--visited-radius 12
+--blocked-move-penalty 0.02
+--same-coord-stuck-steps 600
+
+Isso reduz o caso ruim de ficar segurando left+b parado na parede.
 
 Teste curto, caso ainda queira usar o state da phase9:
 
-python scripts/train_freeplay.py --state states/phase9_start.state --timesteps 200000 --n-envs 2 --vec-env subproc --start-method spawn
+python scripts/train_freeplay.py --state states/phase9_start.state --timesteps 200000 --n-envs 2 --vec-env subproc --start-method spawn --stagnation-steps 1200
 
 Assistir freeplay:
 
 python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.1
+
+Assistir o freeplay com exploracao estocastica:
+
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --stochastic
+
+Avaliar o modelo antigo, treinado antes da memoria de exploracao:
+
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --action-set combo --legacy-observation --stochastic
 
 Se interromper com q ou Ctrl+C, salva em:
 
@@ -231,6 +248,26 @@ No freeplay, salva em models/pokemon_red_freeplay_interrompido.zip.
 --resume
 Continua um treino freeplay a partir de um modelo salvo.
 Exemplo: --resume models/pokemon_red_freeplay_interrompido.zip.
+Use --resume somente com modelo que tenha a mesma configuracao de observacao/acoes.
+Modelo antigo do freeplay precisa de --action-set combo --legacy-observation.
+
+--action-set simple
+Usa somente down, left, right, up, A, B e START no freeplay. E o padrao novo.
+
+--action-set combo
+Usa o conjunto antigo com noop, select e combinacoes movimento+A/B.
+
+--legacy-observation
+Desliga a memoria de exploracao no freeplay para carregar modelos antigos.
+
+--visited-radius
+Tamanho da memoria local de coordenadas visitadas que entra na observacao do freeplay.
+
+--blocked-move-penalty
+Penalidade quando uma acao de movimento nao muda map/x/y.
+
+--same-coord-stuck-steps
+Depois dessa quantidade de visitas na mesma coordenada, aplica penalidade de travamento.
 
 --batch-size
 Tamanho do batch do PPO. No modo v2 usamos 64.

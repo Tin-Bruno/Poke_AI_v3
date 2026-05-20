@@ -14,6 +14,7 @@ FREEPLAY_RAM_SHAPE = (23,)
 
 @dataclass
 class FreeplayRewardBreakdown:
+    coord: float = 0.0
     location: float = 0.0
     map: float = 0.0
     events: float = 0.0
@@ -21,18 +22,21 @@ class FreeplayRewardBreakdown:
     party: float = 0.0
     survival: float = 0.0
     repeat_penalty: float = 0.0
+    stuck_penalty: float = 0.0
     step_penalty: float = 0.0
 
     @property
     def total(self) -> float:
         return (
-            self.location
+            self.coord
+            + self.location
             + self.map
             + self.events
             + self.badges
             + self.party
             + self.survival
             + self.repeat_penalty
+            + self.stuck_penalty
             + self.step_penalty
         )
 
@@ -41,6 +45,7 @@ class FreeplayRewardBreakdown:
         return any(
             value > 0.0
             for value in (
+                self.coord,
                 self.location,
                 self.map,
                 self.events,
@@ -52,6 +57,7 @@ class FreeplayRewardBreakdown:
 
     def as_dict(self) -> dict[str, float]:
         return {
+            "reward_coord": self.coord,
             "reward_location": self.location,
             "reward_map": self.map,
             "reward_events": self.events,
@@ -59,6 +65,7 @@ class FreeplayRewardBreakdown:
             "reward_party": self.party,
             "reward_survival": self.survival,
             "reward_repeat_penalty": self.repeat_penalty,
+            "reward_stuck_penalty": self.stuck_penalty,
             "reward_step_penalty": self.step_penalty,
         }
 
@@ -68,6 +75,7 @@ class FreeplayReward:
 
     def __init__(
         self,
+        coord_weight: float = 0.02,
         location_weight: float = 0.04,
         map_weight: float = 1.0,
         event_weight: float = 0.2,
@@ -75,8 +83,11 @@ class FreeplayReward:
         party_weight: float = 0.05,
         survival_weight: float = 0.03,
         repeat_penalty: float = 0.002,
+        same_coord_limit: int = 600,
+        same_coord_penalty: float = 0.05,
         step_penalty: float = 0.001,
     ) -> None:
+        self.coord_weight = coord_weight
         self.location_weight = location_weight
         self.map_weight = map_weight
         self.event_weight = event_weight
@@ -84,7 +95,10 @@ class FreeplayReward:
         self.party_weight = party_weight
         self.survival_weight = survival_weight
         self.repeat_penalty = repeat_penalty
+        self.same_coord_limit = same_coord_limit
+        self.same_coord_penalty = same_coord_penalty
         self.step_penalty = step_penalty
+        self.seen_coords: dict[tuple[int, int, int], int] = {}
         self.seen_locations: set[tuple[int, int, int]] = set()
         self.seen_maps: set[int] = set()
         self.best_levels_by_species: dict[int, list[int]] = {}
@@ -93,6 +107,7 @@ class FreeplayReward:
         self.previous_snapshot: GameSnapshot | None = None
 
     def reset(self, snapshot: GameSnapshot) -> None:
+        self.seen_coords = {coord_key(snapshot): 1}
         self.seen_locations = {coarse_location_key(snapshot)}
         self.seen_maps = {snapshot.map_id}
         self.best_levels_by_species = species_level_lists(snapshot)
@@ -108,6 +123,14 @@ class FreeplayReward:
         previous = self.previous_snapshot
         best = self.best_snapshot
         breakdown = FreeplayRewardBreakdown(step_penalty=-self.step_penalty)
+
+        exact_coord = coord_key(snapshot)
+        coord_count = self.seen_coords.get(exact_coord, 0) + 1
+        self.seen_coords[exact_coord] = coord_count
+        if coord_count == 1:
+            breakdown.coord += self.coord_weight
+        elif self.same_coord_limit > 0 and coord_count >= self.same_coord_limit:
+            breakdown.stuck_penalty -= self.same_coord_penalty
 
         location_key = coarse_location_key(snapshot)
         if location_key not in self.seen_locations:
@@ -141,6 +164,8 @@ class FreeplayReward:
         info.update(
             {
                 "seen_locations": float(len(self.seen_locations)),
+                "seen_coords": float(len(self.seen_coords)),
+                "coord_visit_count": float(coord_count),
                 "seen_maps": float(len(self.seen_maps)),
                 "badges": float(snapshot.badge_count),
                 "events": float(snapshot.event_count),
@@ -173,6 +198,10 @@ class FreeplayReward:
 
 def coarse_location_key(snapshot: GameSnapshot) -> tuple[int, int, int]:
     return snapshot.map_id, snapshot.x // 2, snapshot.y // 2
+
+
+def coord_key(snapshot: GameSnapshot) -> tuple[int, int, int]:
+    return snapshot.map_id, snapshot.x, snapshot.y
 
 
 def species_level_lists(snapshot: GameSnapshot) -> dict[int, list[int]]:

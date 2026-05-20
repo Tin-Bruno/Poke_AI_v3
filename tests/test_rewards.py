@@ -142,6 +142,18 @@ class PhaseRewardTest(unittest.TestCase):
         self.assertGreater(terms["reward_events"], 0.0)
         self.assertGreater(terms["reward_party"], 0.0)
 
+    def test_freeplay_reward_penalizes_repeated_exact_coord(self) -> None:
+        reward = FreeplayReward(same_coord_limit=2, same_coord_penalty=0.5, step_penalty=0.0)
+        current = snap(map_id=12, x=10, y=35)
+        reward.reset(current)
+
+        value, progress, terms = reward.score(current)
+
+        self.assertLess(value, 0.0)
+        self.assertFalse(progress)
+        self.assertLess(terms["reward_stuck_penalty"], 0.0)
+        self.assertEqual(terms["coord_visit_count"], 2.0)
+
     def test_freeplay_snapshot_vector_has_stable_shape(self) -> None:
         vector = snapshot_vector(snap(party_levels=(5,), party_species=(1,)))
 

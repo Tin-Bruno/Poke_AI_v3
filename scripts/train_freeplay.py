@@ -15,6 +15,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 from envs.freeplay_env import FreeplayConfig, FreeplayPokemonRedEnv
 from project_config import env_float, env_int, env_str, load_dotenv
+from rewards.freeplay_reward import FreeplayReward
 
 
 def should_stop_training() -> bool:
@@ -63,9 +64,14 @@ class FreeplayStatsCallback(BaseCallback):
                 "reward_party",
                 "reward_survival",
                 "reward_repeat_penalty",
+                "reward_stuck_penalty",
+                "reward_blocked_move_penalty",
                 "reward_step_penalty",
+                "reward_coord",
                 "seen_locations",
+                "seen_coords",
                 "seen_maps",
+                "coord_visit_count",
                 "steps_since_progress",
             ):
                 if key in info:
@@ -100,6 +106,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup-frames", type=int, default=0)
     parser.add_argument("--max-steps", type=int, default=20_000)
     parser.add_argument("--stagnation-steps", type=int, default=4_000)
+    parser.add_argument("--action-set", choices=("simple", "combo"), default="simple")
+    parser.add_argument("--legacy-observation", action="store_true")
+    parser.add_argument("--visited-radius", type=int, default=12)
+    parser.add_argument("--blocked-move-penalty", type=float, default=0.02)
+    parser.add_argument("--same-coord-stuck-steps", type=int, default=600)
+    parser.add_argument("--same-coord-stuck-penalty", type=float, default=0.05)
     parser.add_argument("--emulation-speed", type=float, default=None)
     parser.add_argument("--n-steps", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=256)
@@ -140,9 +152,17 @@ def main() -> None:
             warmup_frames=args.warmup_frames,
             max_steps=args.max_steps,
             stagnation_steps=args.stagnation_steps,
+            action_set=args.action_set,
+            memory_observation=not args.legacy_observation,
+            visited_radius=args.visited_radius,
+            blocked_move_penalty=args.blocked_move_penalty,
             emulation_speed=args.emulation_speed,
         )
-        return Monitor(FreeplayPokemonRedEnv(config))
+        reward_model = FreeplayReward(
+            same_coord_limit=args.same_coord_stuck_steps,
+            same_coord_penalty=args.same_coord_stuck_penalty,
+        )
+        return Monitor(FreeplayPokemonRedEnv(config, reward_model=reward_model))
 
     if args.vec_env == "subproc" and args.n_envs > 1:
         env = SubprocVecEnv([make_env for _ in range(args.n_envs)], start_method=args.start_method)
@@ -164,7 +184,14 @@ def main() -> None:
 
     batch_size = min(args.batch_size, max(args.n_steps * args.n_envs, 2))
     if args.resume:
-        model = PPO.load(args.resume, env=env, device="auto")
+        try:
+            model = PPO.load(args.resume, env=env, device="auto")
+        except ValueError as exc:
+            raise SystemExit(
+                "Modelo de freeplay incompativel com a configuracao atual. "
+                "Para continuar o modelo antigo, use --action-set combo --legacy-observation. "
+                "Para usar a logica nova, treine sem --resume."
+            ) from exc
     else:
         model = PPO(
             "MultiInputPolicy",

@@ -13,6 +13,7 @@ from stable_baselines3 import PPO
 
 from envs.freeplay_env import FreeplayConfig, FreeplayPokemonRedEnv
 from project_config import env_str, load_dotenv
+from rewards.freeplay_reward import FreeplayReward
 
 
 def should_stop_eval() -> bool:
@@ -58,6 +59,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup-frames", type=int, default=0)
     parser.add_argument("--max-steps", type=int, default=20_000)
     parser.add_argument("--stagnation-steps", type=int, default=4_000)
+    parser.add_argument("--action-set", choices=("simple", "combo"), default="simple")
+    parser.add_argument("--legacy-observation", action="store_true")
+    parser.add_argument("--visited-radius", type=int, default=12)
+    parser.add_argument("--blocked-move-penalty", type=float, default=0.02)
+    parser.add_argument("--same-coord-stuck-steps", type=int, default=600)
+    parser.add_argument("--same-coord-stuck-penalty", type=float, default=0.05)
     parser.add_argument("--emulation-speed", type=float, default=None)
     parser.add_argument("--delay", type=float, default=0.0)
     parser.add_argument("--stochastic", action="store_true")
@@ -79,13 +86,25 @@ def main() -> None:
         warmup_frames=args.warmup_frames,
         max_steps=args.max_steps,
         stagnation_steps=args.stagnation_steps,
+        action_set=args.action_set,
+        memory_observation=not args.legacy_observation,
+        visited_radius=args.visited_radius,
+        blocked_move_penalty=args.blocked_move_penalty,
         emulation_speed=args.emulation_speed,
     )
-    env = FreeplayPokemonRedEnv(config)
+    reward_model = FreeplayReward(
+        same_coord_limit=args.same_coord_stuck_steps,
+        same_coord_penalty=args.same_coord_stuck_penalty,
+    )
+    env = FreeplayPokemonRedEnv(config, reward_model=reward_model)
     try:
         model = PPO.load(args.model)
         if model.action_space != env.action_space or model.observation_space != env.observation_space:
-            raise SystemExit("Modelo freeplay incompativel. Treine novamente com scripts/train_freeplay.py.")
+            raise SystemExit(
+                "Modelo freeplay incompativel com a configuracao atual. "
+                "Para avaliar o modelo antigo, use --action-set combo --legacy-observation. "
+                "Para a logica nova, treine novamente com scripts/train_freeplay.py."
+            )
 
         obs, info = env.reset()
         final_info = info
@@ -122,6 +141,7 @@ def print_summary(info: dict, total_reward: float, stop_reason: str) -> None:
     print(f"Reward:      {total_reward:.3f}")
     print(f"Mapas:       {int(info.get('seen_maps', 0))}")
     print(f"Locais:      {int(info.get('seen_locations', 0))}")
+    print(f"Coords:      {int(info.get('seen_coords', 0))}")
     print(f"Eventos:     {int(info.get('event_count', 0))}")
     print(f"Party:       {info.get('party_count')} levels={info.get('party_levels')}")
     print("======================")

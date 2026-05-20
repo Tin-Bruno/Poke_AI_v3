@@ -327,11 +327,18 @@ Descricao:
 Depois que o bootstrap chega na Rota 1, o freeplay continua o jogo sem uma phase
 com alvo unico. Ele recebe recompensa por explorar locais novos, entrar em mapas
 novos, ativar eventos, ganhar badges, melhorar o time e evitar repeticao.
+A logica nova segue a ideia do PokemonRedExperiments v2: a observacao inclui
+memoria local de coordenadas visitadas e acoes recentes, e o conjunto padrao de
+acoes e simples para evitar colapsos como left+b parado na parede.
 
 Treinar:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
 
 Assistir:
 
 python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.1
+
+Assistir com exploracao estocastica:
+
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --stochastic

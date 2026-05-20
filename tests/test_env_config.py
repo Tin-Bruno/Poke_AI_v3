@@ -38,6 +38,20 @@ class EnvConfigTest(unittest.TestCase):
 
         self.assertEqual(env.observation_space["screen"].shape, (1, 72, 80))
         self.assertEqual(env.observation_space["ram"].shape, (23,))
+        self.assertEqual(env.observation_space["visited"].shape, (1, 48, 48))
+        self.assertEqual(env.observation_space["recent_actions"].shape, (21,))
+        self.assertEqual(env.action_space.n, 7)
+
+    def test_freeplay_legacy_observation_can_use_combo_actions(self) -> None:
+        env = FreeplayPokemonRedEnv(
+            FreeplayConfig(
+                rom_path="missing.gb",
+                action_set="combo",
+                memory_observation=False,
+            )
+        )
+
+        self.assertEqual(set(env.observation_space.spaces), {"screen", "ram"})
         self.assertEqual(env.action_space.n, 17)
 
     def test_movement_phases_use_small_action_set(self) -> None:
@@ -146,8 +160,8 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(phase.success, "target_map")
         self.assertEqual(phase.rewards, ("waypoint", "target_map"))
         self.assertEqual(phase.target_map, 12)
-        self.assertEqual(phase.target_position_map, 0)
-        self.assertEqual((phase.target_x, phase.target_y), (10, 1))
+        self.assertIsNone(phase.target_position_map)
+        self.assertEqual((phase.target_x, phase.target_y), (None, None))
         self.assertEqual(
             phase.waypoints,
             ((0, 9, 12), (0, 9, 8), (0, 9, 2), (0, 10, 1)),
