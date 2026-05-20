@@ -40,14 +40,16 @@ class StopOnQCallback(BaseCallback):
     def __init__(self, check_freq: int = 500) -> None:
         super().__init__()
         self.check_freq = max(1, check_freq)
+        self.interrupted = False
 
     def _on_step(self) -> bool:
         if self.num_timesteps % self.check_freq != 0:
             return True
         if not should_stop_training():
             return True
+        self.interrupted = True
         print("")
-        print("Treino interrompido pelo usuario com Q. Salvando modelo...")
+        print("Treino interrompido pelo usuario com Q. Salvando modelo interrompido...")
         return False
 
 
@@ -70,6 +72,10 @@ class PhaseStatsCallback(BaseCallback):
                 if key in snapshot:
                     self.logger.record(f"ram/{key}", snapshot[key])
         return True
+
+
+def interrupted_model_path(model_path: str | Path, phase_id: str) -> Path:
+    return Path(model_path).with_name(f"{phase_id}_interrompido.zip")
 
 
 def parse_args() -> argparse.Namespace:
@@ -150,6 +156,7 @@ def main() -> None:
         policy = "MlpPolicy"
     batch_size = min(args.batch_size, max(args.n_steps * args.n_envs, 2))
 
+    stop_callback = StopOnQCallback(check_freq=args.stop_key_check_freq)
     callbacks = CallbackList(
         [
             CheckpointCallback(
@@ -158,7 +165,7 @@ def main() -> None:
                 name_prefix=phase.id,
             ),
             PhaseStatsCallback(),
-            StopOnQCallback(check_freq=args.stop_key_check_freq),
+            stop_callback,
         ]
     )
 
@@ -174,13 +181,20 @@ def main() -> None:
         ent_coef=args.ent_coef,
         tensorboard_log=args.tensorboard_dir,
     )
+    interrupted = False
     try:
-        print("Pressione Q no terminal para interromper e salvar.")
+        print("Pressione Q no terminal para interromper e salvar como modelo interrompido.")
         model.learn(total_timesteps=args.timesteps, callback=callbacks, tb_log_name=phase.id)
+        interrupted = stop_callback.interrupted
+    except KeyboardInterrupt:
+        interrupted = True
+        print("")
+        print("Treino interrompido pelo terminal. Salvando modelo interrompido...")
     finally:
-        model.save(phase.model)
+        save_path = interrupted_model_path(phase.model, phase.id) if interrupted else Path(phase.model)
+        model.save(str(save_path))
         env.close()
-        print(f"Modelo salvo: {phase.model}")
+        print(f"Modelo salvo: {save_path}")
 
 
 if __name__ == "__main__":

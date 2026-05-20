@@ -133,6 +133,20 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(phase.actions, DIALOG_RELEASE_ACTIONS)
         self.assertEqual(phase.scripted_actions, ("b",) * 20 + ("down",) * 4)
 
+    def test_phase9_goes_to_route_1_from_pallet(self) -> None:
+        phase = get_phase("phase9")
+
+        self.assertEqual(phase.success, "target_map")
+        self.assertEqual(phase.rewards, ("waypoint", "target_map"))
+        self.assertEqual(phase.target_map, 12)
+        self.assertEqual(phase.target_position_map, 0)
+        self.assertEqual((phase.target_x, phase.target_y), (10, 1))
+        self.assertEqual(
+            phase.waypoints,
+            ((0, 9, 12), (0, 9, 8), (0, 9, 2), (0, 10, 1)),
+        )
+        self.assertEqual(phase.actions, MOVE_ACTIONS)
+
 
 if __name__ == "__main__":
     unittest.main()

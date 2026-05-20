@@ -193,6 +193,9 @@ PHASES: dict[str, PhaseConfig] = {
         max_steps=800,
         rewards=("target_map", "new_map"),
         success="target_map",
+        target_position_map=38,
+        target_x=7,
+        target_y=1,
         target_map=0,
         blocked_move_penalty=-0.03,
         actions=MOVE_ACTIONS,
@@ -203,9 +206,17 @@ PHASES: dict[str, PhaseConfig] = {
         state="phase9_start.state",
         model="models/phase9_route_1.zip",
         max_steps=1200,
-        rewards=("target_map", "new_map"),
+        rewards=("waypoint", "target_map"),
         success="target_map",
         target_map=12,
+        blocked_move_penalty=-0.03,
+        actions=MOVE_ACTIONS,
+        waypoints=(
+            (0, 9, 12),
+            (0, 9, 8),
+            (0, 9, 2),
+            (0, 10, 1),
+        ),
     ),
 }
 

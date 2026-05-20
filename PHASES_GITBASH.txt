@@ -1,0 +1,316 @@
+PHASES GIT BASH - POKE_AI_V3
+=============================
+
+Use este arquivo para o roteiro especifico de cada phase.
+Os argumentos e comandos gerais ficam em COMANDOS_GITBASH.txt.
+
+
+1) Phase1 - sair do quarto
+--------------------------
+
+Descricao:
+O agente comeca no quarto e aprende a sair para o proximo mapa.
+Usa movimentos simples e observacao coords.
+
+Sucesso:
+Entrar no map=37.
+Alvo auxiliar: map=38 x=7 y=1.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window null
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase1 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase1 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase2_start.state
+
+
+2) Phase2 - sair da casa
+------------------------
+
+Descricao:
+O agente comeca dentro da casa e deve sair para Pallet.
+Usa somente movimentos simples.
+
+Sucesso:
+Entrar no map=0.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase2 --timesteps 20000 --observation-mode coords --window null
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase2 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase2 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase3_start.state
+
+
+3) Phase3 - evento do Professor Oak
+-----------------------------------
+
+Descricao:
+O agente sai em direcao ao norte de Pallet para ativar o evento do Professor Oak.
+Usa waypoints para ensinar a curva ate o evento.
+
+Waypoints:
+map=0 x=8 y=2
+map=0 x=10 y=2
+map=0 x=10 y=1
+
+Sucesso:
+event_count aumentar.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase3 --timesteps 100000 --observation-mode coords --window null
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase4_start.state
+
+
+4) Phase4 - ser levado ao laboratorio
+-------------------------------------
+
+Descricao:
+O agente passa o evento do Oak e e levado para o laboratorio.
+Usa A/B/noop porque o script precisa de confirmacao de fala/interacao.
+
+Sucesso:
+Entrar no map=40.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase4 --timesteps 100000 --observation-mode coords --window null
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase4 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase4 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5_start.state
+
+
+5) Phase5 - passar dialogo inicial do laboratorio
+-------------------------------------------------
+
+Descricao:
+O agente passa o dialogo inicial dentro do laboratorio.
+Usa B/down/noop: B passa dialogo e down ajuda a provar que o controle voltou.
+
+Sucesso:
+Chegar em map=40 x=5 y=3 depois do event_count subir 3 vezes.
+Ao salvar, o eval aperta 1 B extra antes de gravar a phase5b.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase5 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5b_start.state
+
+
+6) Phase5b - ir ate a frente da Pokebola
+----------------------------------------
+
+Descricao:
+O agente vai da posicao inicial do laboratorio ate a frente da Pokebola.
+Ainda nao aperta A; escolher o Pokemon fica para a phase5c.
+
+Sucesso:
+Chegar em map=40 x=6 y=4.
+Ao salvar, o eval aperta up para deixar o personagem virado para a Pokebola.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase5b --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5c_start.state
+
+
+7) Phase5c - escolher starter
+-----------------------------
+
+Descricao:
+O agente interage com a Pokebola e passa as confirmacoes ate receber o starter.
+Usa A/B/noop e observacao ram, porque party_count e dialogos importam.
+
+Sucesso:
+party_count subir de 0 para 1.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase5c --timesteps 200000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase5c --window SDL2 --observation-mode ram --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase5c --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase6_start.state
+
+
+8) Phase6 - passar dialogo do rival
+-----------------------------------
+
+Descricao:
+O agente passa o dialogo do rival depois de pegar o starter.
+Usa B/noop e observacao ram.
+
+Sucesso:
+dialog_or_map_change, ou seja, o dialogo/evento precisa avancar.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase6 --timesteps 100000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase6 --window SDL2 --observation-mode ram --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase6 --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase7_start.state
+
+
+9) Phase7 - iniciar batalha do rival
+------------------------------------
+
+Descricao:
+O agente anda dentro do laboratorio ate o ponto que inicia a batalha do rival.
+Usa movimentos, B e noop.
+
+Waypoints:
+map=40 x=6 y=5
+map=40 x=5 y=5
+map=40 x=5 y=6
+
+Sucesso:
+battle_started.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase7 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase7 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase7 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase7b_start.state
+
+
+10) Phase7b - vencer primeira batalha
+-------------------------------------
+
+Descricao:
+O agente luta contra o rival e passa as caixas de texto da batalha.
+Usa A/B/noop.
+
+Sucesso:
+battle_won.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase7b --timesteps 200000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase7b --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase7b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase8_start.state
+
+
+11) Phase8 - passar dialogo pos-batalha
+---------------------------------------
+
+Descricao:
+Esta phase e scriptada porque a RAM/coords quase nao mudam enquanto o dialogo passa.
+Ela roda 20 vezes B e depois 4 vezes down.
+
+Sucesso:
+Chegar em map=40 x=5 y=7.
+
+Avaliar:
+
+python scripts/eval_phase.py --phase phase8 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase8 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase8b_start.state
+
+
+12) Phase8b - sair do laboratorio
+---------------------------------
+
+Descricao:
+O agente sai do laboratorio e volta para Pallet.
+Usa somente movimentos simples.
+
+Sucesso:
+Entrar no map=0.
+Alvo auxiliar: map=38 x=7 y=1.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase8b --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase8b --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar proxima phase:
+
+python scripts/eval_phase.py --phase phase8b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase9_start.state
+
+
+13) Phase9 - ir para Rota 1
+---------------------------
+
+Descricao:
+O agente sai de Pallet pelo norte em direcao a Rota 1.
+Usa waypoints em Pallet para guiar o caminho sem ficar parado no ponto auxiliar.
+
+Waypoints:
+map=0 x=9 y=12
+map=0 x=9 y=8
+map=0 x=9 y=2
+map=0 x=10 y=1
+
+Sucesso:
+Entrar no map=12.
+
+Treinar:
+
+python scripts/train_phase.py --phase phase9 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coords --delay 0.3

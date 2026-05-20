@@ -43,8 +43,12 @@ Use auto para o script escolher coords/ram conforme cada modelo:
 python scripts/eval_sequence.py --through phase8 --window null --observation-mode auto --steps 3000
 
 
-5) Treinar phase1
------------------
+5) Modelo: treinar uma phase
+----------------------------
+
+Exemplo com phase1:
+O agente comeca no quarto, usa observacao coords e aprende a sair para o proximo mapa.
+Quando passar, salve o state da phase2.
 
 Treino rapido/headless:
 
@@ -54,15 +58,18 @@ Treino vendo a tela:
 
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
-Durante o treino, aperte q no terminal para interromper e salvar o modelo.
+Durante o treino, aperte q no terminal para interromper.
+Quando o treino e interrompido, ele salva sem sobrescrever o modelo principal:
+
+models/phase1_interrompido.zip
 
 Treino com parametros iguais ao projeto v2:
 
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window null --batch-size 64 --gamma 0.95 --n-epochs 10 --learning-rate 0.0003 --ent-coef 0.0
 
 
-6) Avaliar phase1
------------------
+6) Modelo: avaliar e salvar state
+---------------------------------
 
 Avaliar rapido/headless:
 
@@ -83,29 +90,7 @@ Salvar o state da phase2 headless:
 python scripts/eval_phase.py --phase phase1 --window null --observation-mode coords --steps 400 --save-success-state states/phase2_start.state
 
 
-7) Treinar phase2
------------------
-
-python scripts/train_phase.py --phase phase2 --timesteps 20000 --observation-mode coords --window null
-
-Para ver o treino na tela:
-
-python scripts/train_phase.py --phase phase2 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
-
-Durante o treino, aperte q no terminal para interromper e salvar o modelo.
-
-
-8) Avaliar phase2
------------------
-
-python scripts/eval_phase.py --phase phase2 --window null --observation-mode coords --steps 500
-
-python scripts/eval_phase.py --phase phase2 --window SDL2 --observation-mode coords --delay 0.3
-
-Durante a avaliacao, aperte q no terminal para parar e fechar o PyBoy.
-
-
-9) Procurar rota simples ate o mapa alvo
+7) Procurar rota simples ate o mapa alvo
 ----------------------------------------
 
 python scripts/find_phase_path.py --phase phase1 --max-depth 80
@@ -113,223 +98,15 @@ python scripts/find_phase_path.py --phase phase1 --max-depth 80
 python scripts/find_phase_path.py --phase phase2 --max-depth 80
 
 
-10) Phase3 - evento do Professor Oak
-------------------------------------
+8) Roteiro especifico das phases
+--------------------------------
 
-A rota real encontrada do phase3_start.state ate o evento e:
+Os comandos de cada phase ficam no arquivo:
 
-dddwwwwddw
+PHASES_GITBASH.txt
 
-Ou seja:
 
-right right right up up up up right right up
-
-A phase3 usa waypoints para ensinar essa curva:
-
-map=0 x=8  y=2
-map=0 x=10 y=2
-map=0 x=10 y=1
-
-Treinar:
-
-python scripts/train_phase.py --phase phase3 --timesteps 100000 --observation-mode coords --window null
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase4:
-
-python scripts/eval_phase.py --phase phase3 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase4_start.state
-
-
-11) Phase4 - ser levado ao laboratorio
---------------------------------------
-
-A phase4 termina quando entrar no laboratorio:
-
-map=40
-
-A conversa e o controle dentro do laboratorio ficam para a phase5.
-
-A phase4 usa A/B/noop, porque o evento do Oak precisa confirmar a fala para
-continuar o script.
-
-Treinar:
-
-python scripts/train_phase.py --phase phase4 --timesteps 100000 --observation-mode coords --window null
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase4 --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase5:
-
-python scripts/eval_phase.py --phase phase4 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5_start.state
-
-
-12) Phase5 - passar dialogo inicial do laboratorio
---------------------------------------------------
-
-A phase5 usa B/down/noop. O principal aqui e o B passar o dialogo. Ela termina em:
-
-map=40 x=5 y=3
-
-Importante: ela so conta sucesso nesse ponto depois que o event_count subir 3 vezes.
-Assim, passar pelo mesmo ponto antes do final real do dialogo nao encerra a fase.
-Ao salvar o state de sucesso, o eval aperta 1 B extra para liberar o controle antes
-de gravar a phase5b_start.state.
-
-Ela nao usa waypoints; o treino e direto para o alvo final.
-
-Treinar rapido com 6 PyBoys:
-
-python scripts/train_phase.py --phase phase5 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase5b:
-
-python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5b_start.state
-
-
-13) Phase5b - ir ate a frente da Pokebola
------------------------------------------
-
-A phase5b comeca em map=40 x=5 y=3 e usa somente movimento/noop.
-Ela termina em:
-
-map=40 x=6 y=4
-
-Aqui ainda nao aperta A. A escolha do Pokemon fica para a phase5c.
-Ao salvar, o eval aperta up para deixar o personagem virado para a Pokebola.
-
-Treinar rapido com 6 PyBoys:
-
-python scripts/train_phase.py --phase phase5b --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase5c:
-
-python scripts/eval_phase.py --phase phase5b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase5c_start.state
-
-
-14) Phase5c - escolher starter
-------------------------------
-
-A phase5c comeca na frente da Pokebola e usa A/B/noop.
-Ela termina quando party_count sobe de 0 para 1.
-
-Treinar rapido com 6 PyBoys:
-
-python scripts/train_phase.py --phase phase5c --timesteps 200000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase5c --window SDL2 --observation-mode ram --delay 0.3
-
-Se passar, salvar a phase6:
-
-python scripts/eval_phase.py --phase phase5c --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase6_start.state
-
-
-15) Phase6 - passar dialogo do rival
-------------------------------------
-
-A phase6 usa B/noop e deve ser treinada em ram, porque e dialogo/evento.
-
-Treinar rapido com 6 PyBoys:
-
-python scripts/train_phase.py --phase phase6 --timesteps 100000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase6 --window SDL2 --observation-mode ram --delay 0.3
-
-Se passar, salvar a phase7:
-
-python scripts/eval_phase.py --phase phase6 --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase7_start.state
-
-
-16) Phase7 - iniciar batalha do rival
--------------------------------------
-
-A phase7 leva o personagem ate o ponto que inicia a batalha.
-
-Treinar rapido com 6 PyBoys:
-
-python scripts/train_phase.py --phase phase7 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase7 --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase7b:
-
-python scripts/eval_phase.py --phase phase7 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase7b_start.state
-
-
-17) Phase7b - vencer primeira batalha
--------------------------------------
-
-A phase7b usa A/B/noop para lutar e passar caixas de texto da batalha.
-
-Treinar rapido com 6 PyBoys:
-
-python scripts/train_phase.py --phase phase7b --timesteps 200000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase7b --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase8:
-
-python scripts/eval_phase.py --phase phase7b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase8_start.state
-
-
-18) Phase8 - passar dialogo pos-batalha
----------------------------------------
-
-A phase8 e scriptada porque a RAM/coords nao mudam enquanto o dialogo passa.
-Ela roda 20 vezes B e depois 4 vezes down, terminando em:
-
-map=40 x=5 y=7
-
-Avaliar:
-
-python scripts/eval_phase.py --phase phase8 --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase8b:
-
-python scripts/eval_phase.py --phase phase8 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase8b_start.state
-
-
-19) Phase8b - sair do laboratorio
----------------------------------
-
-A phase8b usa somente movimento/noop e termina quando voltar para Pallet:
-
-map=0
-
-Treinar rapido com 6 PyBoys:
-
-python scripts/train_phase.py --phase phase8b --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
-
-Assistir:
-
-python scripts/eval_phase.py --phase phase8b --window SDL2 --observation-mode coords --delay 0.3
-
-Se passar, salvar a phase9:
-
-python scripts/eval_phase.py --phase phase8b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase9_start.state
-
-
-20) Treinar mais rapido com varios PyBoys
+9) Treinar mais rapido com varios PyBoys
 -----------------------------------------
 
 Use um unico PPO com varios ambientes, em vez de varios PPOs escrevendo no mesmo modelo.
@@ -343,7 +120,7 @@ Para ver a tela, use somente 1 ambiente:
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
 
-21) Controle manual
+10) Controle manual
 -------------------
 
 python scripts/manual_control.py --phase phase1 --window SDL2
@@ -373,7 +150,7 @@ talk 10  (10 vezes B para dialogo)
 wait 60
 
 
-22) Significado dos argumentos mais usados
+11) Significado dos argumentos mais usados
 ------------------------------------------
 
 --phase
@@ -418,6 +195,10 @@ Forca um unico ambiente. Use quando quiser ver a tela no treino.
 Frequencia em timesteps para checar se q foi apertado durante o treino.
 Default atual: 500.
 
+Modelo interrompido
+Se apertar q ou Ctrl+C durante o treino, salva em models/phaseX_interrompido.zip
+em vez de sobrescrever models/phaseX_*.zip.
+
 --batch-size
 Tamanho do batch do PPO. No modo v2 usamos 64.
 
@@ -434,7 +215,7 @@ Taxa de aprendizado. No modo v2 usamos 0.0003.
 Bonus de exploracao/entropia. No modo v2 usamos 0.0.
 
 
-23) Fluxo recomendado para cada fase
+12) Fluxo recomendado para cada fase
 ------------------------------------
 
 1. Conferir state:
