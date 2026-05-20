@@ -6,6 +6,7 @@ from memory.ram_map import GameSnapshot
 from phases.phase_config import PhaseConfig, get_phase
 from rewards import make_reward
 from rewards.dialog_reward import DialogReward
+from rewards.freeplay_reward import FREEPLAY_RAM_SHAPE, FreeplayReward, snapshot_vector
 from rewards.party_reward import PartyReward
 from rewards.target_position_reward import TargetPositionReward
 from rewards.waypoint_reward import WaypointReward
@@ -18,6 +19,7 @@ def snap(
     event_count: int = 0,
     hp_fraction: float = 1.0,
     party_levels: tuple[int, ...] = (),
+    party_species: tuple[int, ...] = (),
 ) -> GameSnapshot:
     return GameSnapshot(
         map_id=map_id,
@@ -26,6 +28,7 @@ def snap(
         badges=0,
         party_count=len(party_levels),
         party_levels=party_levels,
+        party_species=party_species,
         hp_fraction=hp_fraction,
         event_count=event_count,
     )
@@ -124,6 +127,26 @@ class PhaseRewardTest(unittest.TestCase):
 
         self.assertEqual(result.value, 10.0)
         self.assertTrue(result.progress)
+
+    def test_freeplay_reward_tracks_general_progress(self) -> None:
+        reward = FreeplayReward()
+        reward.reset(snap(map_id=0, x=1, y=1, event_count=2, party_levels=(5,), party_species=(1,)))
+
+        value, progress, terms = reward.score(
+            snap(map_id=12, x=4, y=4, event_count=4, party_levels=(6,), party_species=(1,))
+        )
+
+        self.assertGreater(value, 0.0)
+        self.assertTrue(progress)
+        self.assertGreater(terms["reward_map"], 0.0)
+        self.assertGreater(terms["reward_events"], 0.0)
+        self.assertGreater(terms["reward_party"], 0.0)
+
+    def test_freeplay_snapshot_vector_has_stable_shape(self) -> None:
+        vector = snapshot_vector(snap(party_levels=(5,), party_species=(1,)))
+
+        self.assertEqual(vector.shape, FREEPLAY_RAM_SHAPE)
+        self.assertEqual(vector.dtype.name, "float32")
 
 
 if __name__ == "__main__":

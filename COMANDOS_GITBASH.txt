@@ -12,7 +12,7 @@ source .venv/Scripts/activate
 
 python -m unittest discover -s tests -v
 
-python -m py_compile project_config.py envs/pokemon_red_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py rewards/waypoint_reward.py rewards/party_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/eval_sequence.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py scripts/manual_control.py scripts/test_rom.py tests/test_env_config.py tests/test_rewards.py tests/test_success_conditions.py
+python -m py_compile project_config.py envs/pokemon_red_env.py envs/freeplay_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py rewards/waypoint_reward.py rewards/party_reward.py rewards/freeplay_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/eval_sequence.py scripts/train_freeplay.py scripts/eval_freeplay.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py scripts/manual_control.py scripts/test_rom.py tests/test_env_config.py tests/test_rewards.py tests/test_success_conditions.py
 
 
 Regra dos botoes nas fases:
@@ -120,7 +120,31 @@ Para ver a tela, use somente 1 ambiente:
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
 
-10) Controle manual
+10) Freeplay depois da Rota 1
+-----------------------------
+
+Salvar um state para o freeplay quando a phase9 passar:
+
+python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/freeplay_start.state
+
+Treinar freeplay a partir desse state:
+
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn
+
+Teste curto, caso ainda queira usar o state da phase9:
+
+python scripts/train_freeplay.py --state states/phase9_start.state --timesteps 200000 --n-envs 2 --vec-env subproc --start-method spawn
+
+Assistir freeplay:
+
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.1
+
+Se interromper com q ou Ctrl+C, salva em:
+
+models/pokemon_red_freeplay_interrompido.zip
+
+
+11) Controle manual
 -------------------
 
 python scripts/manual_control.py --phase phase1 --window SDL2
@@ -150,7 +174,7 @@ talk 10  (10 vezes B para dialogo)
 wait 60
 
 
-11) Significado dos argumentos mais usados
+12) Significado dos argumentos mais usados
 ------------------------------------------
 
 --phase
@@ -158,6 +182,9 @@ Escolhe qual fase usar. Exemplos: phase1, phase2.
 
 --timesteps
 Quantidade de passos de treino. Exemplo: --timesteps 20000.
+
+--state
+Escolhe o state inicial no freeplay. Exemplo: --state states/freeplay_start.state.
 
 --observation-mode coords
 Usa observacao simples [map_id, x, y]. E o modo inspirado no projeto v2.
@@ -199,6 +226,12 @@ Modelo interrompido
 Se apertar q ou Ctrl+C durante o treino, salva em models/phaseX_interrompido.zip
 em vez de sobrescrever models/phaseX_*.zip.
 
+No freeplay, salva em models/pokemon_red_freeplay_interrompido.zip.
+
+--resume
+Continua um treino freeplay a partir de um modelo salvo.
+Exemplo: --resume models/pokemon_red_freeplay_interrompido.zip.
+
 --batch-size
 Tamanho do batch do PPO. No modo v2 usamos 64.
 
@@ -215,7 +248,7 @@ Taxa de aprendizado. No modo v2 usamos 0.0003.
 Bonus de exploracao/entropia. No modo v2 usamos 0.0.
 
 
-12) Fluxo recomendado para cada fase
+13) Fluxo recomendado para cada fase
 ------------------------------------
 
 1. Conferir state:

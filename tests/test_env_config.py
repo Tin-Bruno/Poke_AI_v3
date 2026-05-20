@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from envs import PokemonRedEnv
+from envs import FreeplayConfig, FreeplayPokemonRedEnv, PokemonRedEnv
 from phases import get_phase
 from phases.phase_config import (
     DIALOG_ACTIONS,
@@ -32,6 +32,13 @@ class EnvConfigTest(unittest.TestCase):
 
         self.assertEqual(env.observation_space.shape, (6,))
         self.assertEqual(env.observation_space.dtype.name, "float32")
+
+    def test_freeplay_observation_uses_screen_and_ram(self) -> None:
+        env = FreeplayPokemonRedEnv(FreeplayConfig(rom_path="missing.gb"))
+
+        self.assertEqual(env.observation_space["screen"].shape, (1, 72, 80))
+        self.assertEqual(env.observation_space["ram"].shape, (23,))
+        self.assertEqual(env.action_space.n, 17)
 
     def test_movement_phases_use_small_action_set(self) -> None:
         env = PokemonRedEnv(

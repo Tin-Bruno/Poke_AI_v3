@@ -314,3 +314,24 @@ python scripts/train_phase.py --phase phase9 --timesteps 100000 --observation-mo
 Assistir:
 
 python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coords --delay 0.3
+
+Salvar marco para freeplay:
+
+python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/freeplay_start.state
+
+
+14) Freeplay - continuar sem roteiro fixo
+-----------------------------------------
+
+Descricao:
+Depois que o bootstrap chega na Rota 1, o freeplay continua o jogo sem uma phase
+com alvo unico. Ele recebe recompensa por explorar locais novos, entrar em mapas
+novos, ativar eventos, ganhar badges, melhorar o time e evitar repeticao.
+
+Treinar:
+
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn
+
+Assistir:
+
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.1
