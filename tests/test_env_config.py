@@ -112,10 +112,10 @@ class EnvConfigTest(unittest.TestCase):
 
         self.assertEqual(phase.success, "target_position")
         self.assertEqual(phase.rewards, ("waypoint", "target_position"))
-        self.assertEqual((phase.target_x, phase.target_y), (8, 4))
-        self.assertEqual(phase.waypoints[0], (40, 5, 3))
-        self.assertEqual(phase.waypoints[-1], (40, 8, 4))
+        self.assertEqual((phase.target_x, phase.target_y), (6, 4))
+        self.assertEqual(phase.waypoints, ())
         self.assertEqual(phase.actions, MOVE_ACTIONS)
+        self.assertEqual(phase.save_actions, ("up",))
 
     def test_phase5c_rewards_starter_pickup(self) -> None:
         phase = get_phase("phase5c")
@@ -123,6 +123,15 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(phase.success, "party_count_increase")
         self.assertEqual(phase.rewards, ("dialog", "party"))
         self.assertEqual(phase.actions, DIALOG_CONFIRM_ACTIONS)
+
+    def test_phase8_stops_after_post_battle_dialog_and_control(self) -> None:
+        phase = get_phase("phase8")
+
+        self.assertEqual(phase.success, "target_position")
+        self.assertEqual(phase.rewards, ("target_position",))
+        self.assertEqual((phase.target_x, phase.target_y), (5, 7))
+        self.assertEqual(phase.actions, DIALOG_RELEASE_ACTIONS)
+        self.assertEqual(phase.scripted_actions, ("b",) * 20 + ("down",) * 4)
 
 
 if __name__ == "__main__":

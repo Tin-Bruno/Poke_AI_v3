@@ -159,20 +159,29 @@ def eval_raw_env(args: argparse.Namespace, phase, model_path: str | Path) -> Non
         reward_scale=args.reward_scale,
     )
     try:
-        model = load_model(model_path, phase)
-        ensure_model_compatible(model, env, phase)
+        model = None
+        if not phase.scripted_actions:
+            model = load_model(model_path, phase)
+            ensure_model_compatible(model, env, phase)
 
         obs, _ = env.reset()
         final_info = {}
         stop_reason = "limite de steps"
         saved_state = None
+        scripted_actions = list(phase.scripted_actions)
 
         for _ in range(args.steps):
             if should_stop_eval():
                 stop_reason = "interrompido com q"
                 break
 
-            action, _ = model.predict(obs, deterministic=not args.stochastic)
+            if scripted_actions:
+                action = action_index(env, phase, scripted_actions.pop(0))
+            elif phase.scripted_actions:
+                stop_reason = "script concluido"
+                break
+            else:
+                action, _ = model.predict(obs, deterministic=not args.stochastic)
             obs, _reward, terminated, truncated, info = env.step(action)
             final_info = info
 
@@ -198,12 +207,16 @@ def eval_raw_env(args: argparse.Namespace, phase, model_path: str | Path) -> Non
 
 def run_save_actions(env: PokemonRedEnv, phase) -> None:
     for action_name in phase.save_actions:
-        if action_name not in env.actions:
-            raise SystemExit(
-                f"A fase {phase.id} pediu save_actions={phase.save_actions}, "
-                f"mas as acoes disponiveis sao {env.actions}."
-            )
-        env.step(env.actions.index(action_name))
+        env.step(action_index(env, phase, action_name))
+
+
+def action_index(env: PokemonRedEnv, phase, action_name: str) -> int:
+    if action_name not in env.actions:
+        raise SystemExit(
+            f"A fase {phase.id} pediu a acao {action_name!r}, "
+            f"mas as acoes disponiveis sao {env.actions}."
+        )
+    return env.actions.index(action_name)
 
 
 def load_model(model_path: str | Path, phase) -> PPO:

@@ -14,7 +14,7 @@ from stable_baselines3 import PPO
 from envs import PokemonRedEnv
 from phases.phase_config import PHASES, PhaseConfig, get_phase
 from project_config import env_float, env_int, env_str, load_dotenv
-from scripts.eval_phase import compact_info, ensure_model_compatible, run_save_actions
+from scripts.eval_phase import action_index, compact_info, ensure_model_compatible, run_save_actions
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,8 +30,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument(
         "--observation-mode",
-        choices=("coords", "ram", "screen", "multi"),
-        default=env_str("POKE_OBSERVATION_MODE", "coords"),
+        choices=("auto", "coords", "ram", "screen", "multi"),
+        default="auto",
+        help="Use auto para inferir o modo pela observation_space de cada modelo.",
     )
     parser.add_argument("--frame-stacks", type=int, default=env_int("POKE_FRAME_STACKS", 3))
     parser.add_argument("--action-frames", type=int, default=env_int("POKE_ACTION_FRAMES", 12))
@@ -94,6 +95,15 @@ def main() -> None:
 
 
 def run_phase(args: argparse.Namespace, phase: PhaseConfig, state_path: Path, output_state: Path) -> tuple[bool, dict]:
+    model_path = Path(phase.model)
+    if not phase.scripted_actions and not model_path.exists():
+        raise SystemExit(f"Modelo nao encontrado para {phase.id}: {model_path}")
+
+    model = None if phase.scripted_actions else PPO.load(model_path)
+    if args.observation_mode == "auto":
+        observation_mode = "coords" if model is None else infer_observation_mode(model)
+    else:
+        observation_mode = args.observation_mode
     env = PokemonRedEnv(
         rom_path=args.rom,
         phase=phase,
@@ -101,20 +111,27 @@ def run_phase(args: argparse.Namespace, phase: PhaseConfig, state_path: Path, ou
         symbols_path=args.symbols,
         window=args.window,
         action_frames=args.action_frames,
-        observation_mode=args.observation_mode,
+        observation_mode=observation_mode,
         frame_stacks=args.frame_stacks,
         reward_scale=args.reward_scale,
     )
     try:
-        model = PPO.load(phase.model)
-        ensure_model_compatible(model, env, phase)
+        if model is not None:
+            ensure_model_compatible(model, env, phase)
 
         obs, _ = env.reset()
         final_info = {}
         stop_reason = "limite de steps"
+        scripted_actions = list(phase.scripted_actions)
 
         for _ in range(args.steps):
-            action, _ = model.predict(obs, deterministic=not args.stochastic)
+            if scripted_actions:
+                action = action_index(env, phase, scripted_actions.pop(0))
+            elif phase.scripted_actions:
+                stop_reason = "script concluido"
+                break
+            else:
+                action, _ = model.predict(obs, deterministic=not args.stochastic)
             obs, _reward, terminated, truncated, info = env.step(action)
             final_info = info
             if info.get("success"):
@@ -127,19 +144,42 @@ def run_phase(args: argparse.Namespace, phase: PhaseConfig, state_path: Path, ou
                 stop_reason = "timeout sem progresso" if info.get("no_progress_timeout") else "episodio encerrado"
                 break
 
-        print_phase_summary(phase, final_info, stop_reason, output_state)
+        print_phase_summary(phase, final_info, stop_reason, output_state, observation_mode)
         return bool(final_info.get("success")), final_info
     finally:
         env.close()
 
 
-def print_phase_summary(phase: PhaseConfig, info: dict, stop_reason: str, output_state: Path) -> None:
+def infer_observation_mode(model: PPO) -> str:
+    space = model.observation_space
+    if hasattr(space, "spaces"):
+        return "multi"
+
+    shape = getattr(space, "shape", None)
+    dtype = str(getattr(space, "dtype", ""))
+    if shape == (3,) and dtype == "uint8":
+        return "coords"
+    if shape == (6,) and dtype == "float32":
+        return "ram"
+    if shape and len(shape) == 3:
+        return "screen"
+
+    raise SystemExit(f"Nao consegui inferir observation-mode para observation_space={space}")
+
+
+def print_phase_summary(
+    phase: PhaseConfig,
+    info: dict,
+    stop_reason: str,
+    output_state: Path,
+    observation_mode: str,
+) -> None:
     compact = compact_info(info)
     status = "OK" if compact["success"] else "FALHOU"
     print(
         f"{phase.id}: {status} | {stop_reason} | "
         f"map={compact['map_id']} x={compact['x']} y={compact['y']} | "
-        f"action={compact['action']} | steps={compact['step_count']}"
+        f"action={compact['action']} | steps={compact['step_count']} | obs={observation_mode}"
     )
     if compact["success"]:
         print(f"  state: {output_state}")

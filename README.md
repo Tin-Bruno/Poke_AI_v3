@@ -154,7 +154,8 @@ phase5b ir ate a frente da Pokebola
 phase5c escolher starter
 phase6  passar dialogo do rival
 phase7  vencer primeira batalha
-phase8  sair do laboratorio
+phase8  passar dialogo pos-batalha
+phase8b sair do laboratorio
 phase9  ir para Rota 1
 ```
 

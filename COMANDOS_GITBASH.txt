@@ -12,7 +12,7 @@ source .venv/Scripts/activate
 
 python -m unittest discover -s tests -v
 
-python -m py_compile project_config.py envs/pokemon_red_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py rewards/waypoint_reward.py rewards/party_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py scripts/manual_control.py scripts/test_rom.py
+python -m py_compile project_config.py envs/pokemon_red_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py rewards/waypoint_reward.py rewards/party_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/eval_sequence.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py scripts/manual_control.py scripts/test_rom.py tests/test_env_config.py tests/test_rewards.py tests/test_success_conditions.py
 
 
 Regra dos botoes nas fases:
@@ -37,9 +37,10 @@ python scripts/test_env.py --phase phase1 --steps 40 --window null --observation
 
 python scripts/test_env.py --phase phase2 --steps 40 --window null --observation-mode coords
 
-Testar sequencia sem sobrescrever states oficiais:
+Testar sequencia sem sobrescrever states oficiais.
+Use auto para o script escolher coords/ram conforme cada modelo:
 
-python scripts/eval_sequence.py --through phase5 --window null --observation-mode coords --steps 2000
+python scripts/eval_sequence.py --through phase8 --window null --observation-mode auto --steps 3000
 
 
 5) Treinar phase1
@@ -200,9 +201,10 @@ python scripts/eval_phase.py --phase phase5 --window SDL2 --observation-mode coo
 A phase5b comeca em map=40 x=5 y=3 e usa somente movimento/noop.
 Ela termina em:
 
-map=40 x=8 y=4
+map=40 x=6 y=4
 
 Aqui ainda nao aperta A. A escolha do Pokemon fica para a phase5c.
+Ao salvar, o eval aperta up para deixar o personagem virado para a Pokebola.
 
 Treinar rapido com 6 PyBoys:
 
@@ -236,7 +238,98 @@ Se passar, salvar a phase6:
 python scripts/eval_phase.py --phase phase5c --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase6_start.state
 
 
-15) Treinar mais rapido com varios PyBoys
+15) Phase6 - passar dialogo do rival
+------------------------------------
+
+A phase6 usa B/noop e deve ser treinada em ram, porque e dialogo/evento.
+
+Treinar rapido com 6 PyBoys:
+
+python scripts/train_phase.py --phase phase6 --timesteps 100000 --observation-mode ram --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase6 --window SDL2 --observation-mode ram --delay 0.3
+
+Se passar, salvar a phase7:
+
+python scripts/eval_phase.py --phase phase6 --window SDL2 --observation-mode ram --delay 0.3 --save-success-state states/phase7_start.state
+
+
+16) Phase7 - iniciar batalha do rival
+-------------------------------------
+
+A phase7 leva o personagem ate o ponto que inicia a batalha.
+
+Treinar rapido com 6 PyBoys:
+
+python scripts/train_phase.py --phase phase7 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase7 --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase7b:
+
+python scripts/eval_phase.py --phase phase7 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase7b_start.state
+
+
+17) Phase7b - vencer primeira batalha
+-------------------------------------
+
+A phase7b usa A/B/noop para lutar e passar caixas de texto da batalha.
+
+Treinar rapido com 6 PyBoys:
+
+python scripts/train_phase.py --phase phase7b --timesteps 200000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase7b --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase8:
+
+python scripts/eval_phase.py --phase phase7b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase8_start.state
+
+
+18) Phase8 - passar dialogo pos-batalha
+---------------------------------------
+
+A phase8 e scriptada porque a RAM/coords nao mudam enquanto o dialogo passa.
+Ela roda 20 vezes B e depois 4 vezes down, terminando em:
+
+map=40 x=5 y=7
+
+Avaliar:
+
+python scripts/eval_phase.py --phase phase8 --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase8b:
+
+python scripts/eval_phase.py --phase phase8 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase8b_start.state
+
+
+19) Phase8b - sair do laboratorio
+---------------------------------
+
+A phase8b usa somente movimento/noop e termina quando voltar para Pallet:
+
+map=0
+
+Treinar rapido com 6 PyBoys:
+
+python scripts/train_phase.py --phase phase8b --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+Assistir:
+
+python scripts/eval_phase.py --phase phase8b --window SDL2 --observation-mode coords --delay 0.3
+
+Se passar, salvar a phase9:
+
+python scripts/eval_phase.py --phase phase8b --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase9_start.state
+
+
+20) Treinar mais rapido com varios PyBoys
 -----------------------------------------
 
 Use um unico PPO com varios ambientes, em vez de varios PPOs escrevendo no mesmo modelo.
@@ -250,7 +343,7 @@ Para ver a tela, use somente 1 ambiente:
 python scripts/train_phase.py --phase phase1 --timesteps 20000 --observation-mode coords --window SDL2 --n-envs 1 --vec-env dummy
 
 
-16) Controle manual
+21) Controle manual
 -------------------
 
 python scripts/manual_control.py --phase phase1 --window SDL2
@@ -280,7 +373,7 @@ talk 10  (10 vezes B para dialogo)
 wait 60
 
 
-17) Significado dos argumentos mais usados
+22) Significado dos argumentos mais usados
 ------------------------------------------
 
 --phase
@@ -341,7 +434,7 @@ Taxa de aprendizado. No modo v2 usamos 0.0003.
 Bonus de exploracao/entropia. No modo v2 usamos 0.0.
 
 
-18) Fluxo recomendado para cada fase
+23) Fluxo recomendado para cada fase
 ------------------------------------
 
 1. Conferir state:

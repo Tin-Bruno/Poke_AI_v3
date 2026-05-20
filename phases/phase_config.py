@@ -25,6 +25,7 @@ class PhaseConfig:
     actions: tuple[str, ...] | None = None
     waypoints: tuple[tuple[int, int, int], ...] = ()
     save_actions: tuple[str, ...] = ()
+    scripted_actions: tuple[str, ...] = ()
 
 
 MOVE_ACTIONS = ("up", "down", "left", "right", "noop")
@@ -171,13 +172,30 @@ PHASES: dict[str, PhaseConfig] = {
     ),
     "phase8": PhaseConfig(
         id="phase8",
-        name="Sair do laboratorio",
+        name="Passar dialogo pos-batalha",
         state="phase8_start.state",
-        model="models/phase8_exit_lab.zip",
+        model="models/phase8_after_battle_dialog.zip",
+        max_steps=800,
+        rewards=("target_position",),
+        success="target_position",
+        target_map=40,
+        target_x=5,
+        target_y=7,
+        blocked_move_penalty=-0.03,
+        actions=DIALOG_RELEASE_ACTIONS,
+        scripted_actions=("b",) * 20 + ("down",) * 4,
+    ),
+    "phase8b": PhaseConfig(
+        id="phase8b",
+        name="Sair do laboratorio",
+        state="phase8b_start.state",
+        model="models/phase8b_exit_lab.zip",
         max_steps=800,
         rewards=("target_map", "new_map"),
         success="target_map",
         target_map=0,
+        blocked_move_penalty=-0.03,
+        actions=MOVE_ACTIONS,
     ),
     "phase9": PhaseConfig(
         id="phase9",
