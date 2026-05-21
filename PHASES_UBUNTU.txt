@@ -1,8 +1,8 @@
-PHASES GIT BASH - POKE_AI_V3
-=============================
+PHASES UBUNTU - POKE_AI_V3
+==========================
 
 Use este arquivo para o roteiro especifico de cada phase.
-Os argumentos e comandos gerais ficam em COMANDOS_GITBASH.txt.
+Os argumentos e comandos gerais ficam em COMANDOS_UBUNTU.txt.
 
 
 1) Phase1 - sair do quarto
@@ -320,7 +320,30 @@ Salvar marco para freeplay:
 python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/freeplay_start.state
 
 
-14) Freeplay - continuar sem roteiro fixo
+14) Proximas phases ate Brock
+-----------------------------
+
+As configs phase10 ate phase15 ja existem como curriculo inicial depois da Rota 1:
+
+phase10  Rota 1 ate Viridian
+phase11  Viridian ate Rota 2
+phase12  Rota 2 ate Viridian Forest
+phase13  atravessar Viridian Forest
+phase14  Rota 2 ate Pewter
+phase14b Pewter ate ginasio
+phase15  vencer Brock
+
+Use o mesmo ciclo das fases anteriores:
+
+python scripts/train_phase.py --phase phase10 --timesteps 100000 --observation-mode coords --window null --n-envs 6 --vec-env subproc
+
+python scripts/eval_phase.py --phase phase10 --window SDL2 --observation-mode coords --delay 0.3 --save-success-state states/phase11_start.state
+
+Essas phases novas sao ponto de partida. Confira map/x/y com view_ram/manual_control
+e ajuste waypoints conforme o comportamento real da sua ROM/state.
+
+
+15) Freeplay - continuar sem roteiro fixo
 -----------------------------------------
 
 Descricao:
@@ -333,7 +356,11 @@ acoes e simples para evitar colapsos como left+b parado na parede.
 
 Treinar:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
+
+Treino leve com RAM:
+
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
 
 Assistir:
 
@@ -342,3 +369,9 @@ python scripts/eval_freeplay.py --state states/freeplay_start.state --model mode
 Assistir com exploracao estocastica:
 
 python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --stochastic
+
+Salvar e resumir trace:
+
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --stochastic --trace-csv logs/freeplay_trace.csv
+
+python scripts/summarize_trace.py logs/freeplay_trace.csv

@@ -24,52 +24,46 @@ runs/        checkpoints e TensorBoard
 A regra principal: o ambiente nao sabe a logica de cada fase. Ele executa o jogo,
 le RAM, aplica a acao e chama a configuracao da fase atual.
 
-## Setup
+## Setup no Ubuntu
 
-No Git Bash:
+Instale os pacotes de sistema:
 
 ```bash
-py -3.11 -m venv .venv
-source .venv/Scripts/activate
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git libsdl2-2.0-0
+```
+
+Crie e ative o ambiente virtual:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 python --version
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 mkdir -p roms states models logs runs
 ```
 
-O `python --version` deve mostrar Python 3.11.x. Se voce usa `python -m venv`
-direto, confira antes se o `python` do terminal aponta para 3.11.
-
-Alternativa no PowerShell:
-
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python --version
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-New-Item -ItemType Directory -Force roms, states, models, logs, runs
-```
-
-Evite criar o venv com Python 3.14 por enquanto; `torch` e `stable-baselines3`
-costumam ser mais estaveis em 3.11/3.12.
+O `python --version` deve mostrar Python 3.10, 3.11 ou 3.12. Evite Python 3.13+
+por enquanto; `torch` e `stable-baselines3` costumam ser mais estaveis em
+3.11/3.12.
 
 Se o ambiente ja existe com a versao errada:
 
 ```bash
 deactivate
 rm -rf .venv
-py -3.11 -m venv .venv
-source .venv/Scripts/activate
+python3 -m venv .venv
+source .venv/bin/activate
 python --version
 python -m pip install -r requirements.txt
 ```
 
-Forma generica, caso seu `python` ja seja 3.11:
+Se seu Ubuntu tiver `python` apontando para a versao correta, tambem funciona:
 
 ```bash
 python -m venv .venv
-source .venv/Scripts/activate
+source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 mkdir -p roms states models logs runs
@@ -84,10 +78,10 @@ roms/pokemon_red.gb
 ## Versao do PyBoy
 
 O projeto fixa `pyboy==2.6.0` porque a versao `2.7.1` pode causar bug visual em
-dialogos. Se o seu ambiente foi criado antes dessa correcao, atualize no Git Bash:
+dialogos. Se o seu ambiente foi criado antes dessa correcao, atualize no Ubuntu:
 
 ```bash
-source .venv/Scripts/activate
+source .venv/bin/activate
 python -m pip install --upgrade pyboy==2.6.0
 python -m pip show pyboy
 ```
@@ -157,6 +151,14 @@ phase7  vencer primeira batalha
 phase8  passar dialogo pos-batalha
 phase8b sair do laboratorio
 phase9  ir para Rota 1
+phase10 Rota 1 ate Viridian
+phase11 Viridian ate Rota 2
+phase12 Rota 2 ate Viridian Forest
+phase13 atravessar Viridian Forest
+phase14 Rota 2 ate Pewter
+phase14b Pewter ate ginasio
+phase15 vencer Brock
+freeplay_route1 experimento livre a partir da Rota 1
 ```
 
 O primeiro alvo real e deixar `phase1` e `phase2` funcionando muito bem antes de
@@ -202,8 +204,8 @@ ddddww
 5d
 ```
 
-No Git Bash esse modo costuma ser melhor que captura de tecla unica, porque evita
-fila gigante de tecla repetida no terminal.
+No terminal do Ubuntu, esse modo costuma ser melhor que captura de tecla unica,
+porque evita fila gigante de tecla repetida no terminal.
 
 Para dialogos, prefira `talk` em vez de `10k`, porque ele espera mais entre cada B.
 Use `j`/A para interagir com objeto ou NPC no mundo:
@@ -259,8 +261,45 @@ python scripts/eval_phase.py --phase phase1 --save-success-state states/phase2_s
 - `scripts/train_phase.py`: treinar uma fase especifica.
 - `scripts/eval_phase.py`: rodar um modelo treinado.
 - `scripts/eval_sequence.py`: esqueleto para rodar fases em sequencia.
+- `scripts/train_freeplay.py`: treinar uma politica livre depois do bootstrap.
+- `scripts/eval_freeplay.py`: avaliar freeplay e opcionalmente gravar trace CSV.
+- `scripts/benchmark_env.py`: medir steps/s de phase ou freeplay.
+- `scripts/summarize_trace.py`: resumir o trace CSV do freeplay.
 - `scripts/view_ram.py`: imprimir snapshot de RAM de um state.
 - `scripts/visualization.py`: listar fases configuradas.
+
+## Freeplay
+
+Depois que a `phase9` chegar na Rota 1, salve um state proprio para freeplay:
+
+```bash
+python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coords --save-success-state states/freeplay_start.state
+```
+
+Treino leve, usando apenas RAM:
+
+```bash
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver
+```
+
+Treino completo, com tela, RAM, memoria local de exploracao e acoes recentes:
+
+```bash
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method forkserver
+```
+
+Avaliar e gravar um trace CSV:
+
+```bash
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --stochastic --trace-csv logs/freeplay_trace.csv
+python scripts/summarize_trace.py logs/freeplay_trace.csv
+```
+
+Medir velocidade do ambiente:
+
+```bash
+python scripts/benchmark_env.py --mode freeplay --state states/freeplay_start.state --observation-mode ram --steps 10000
+```
 
 ## Onde Vamos Comecar
 

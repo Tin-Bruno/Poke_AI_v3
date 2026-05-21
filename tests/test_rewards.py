@@ -20,6 +20,7 @@ def snap(
     hp_fraction: float = 1.0,
     party_levels: tuple[int, ...] = (),
     party_species: tuple[int, ...] = (),
+    in_battle: bool = False,
 ) -> GameSnapshot:
     return GameSnapshot(
         map_id=map_id,
@@ -30,6 +31,7 @@ def snap(
         party_levels=party_levels,
         party_species=party_species,
         hp_fraction=hp_fraction,
+        in_battle=in_battle,
         event_count=event_count,
     )
 
@@ -153,6 +155,26 @@ class PhaseRewardTest(unittest.TestCase):
         self.assertFalse(progress)
         self.assertLess(terms["reward_stuck_penalty"], 0.0)
         self.assertEqual(terms["coord_visit_count"], 2.0)
+
+    def test_freeplay_reward_tracks_battle_result_and_faint(self) -> None:
+        reward = FreeplayReward(step_penalty=0.0, battle_win_reward=2.0, faint_penalty=3.0)
+        reward.reset(snap(map_id=12, x=1, y=1, hp_fraction=0.5, party_levels=(5,), in_battle=True))
+
+        win_value, win_progress, win_terms = reward.score(
+            snap(map_id=12, x=1, y=1, hp_fraction=0.4, party_levels=(5,), in_battle=False)
+        )
+
+        reward.reset(snap(map_id=12, x=1, y=1, hp_fraction=0.5, party_levels=(5,), in_battle=True))
+        faint_value, faint_progress, faint_terms = reward.score(
+            snap(map_id=12, x=1, y=1, hp_fraction=0.0, party_levels=(5,), in_battle=True)
+        )
+
+        self.assertGreater(win_value, 0.0)
+        self.assertTrue(win_progress)
+        self.assertGreater(win_terms["reward_battle"], 0.0)
+        self.assertLess(faint_value, 0.0)
+        self.assertFalse(faint_progress)
+        self.assertLess(faint_terms["reward_faint_penalty"], 0.0)
 
     def test_freeplay_snapshot_vector_has_stable_shape(self) -> None:
         vector = snapshot_vector(snap(party_levels=(5,), party_species=(1,)))

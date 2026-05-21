@@ -62,6 +62,10 @@ def badge_count(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfi
     return phase.target_badges is not None and snapshot.badge_count >= phase.target_badges
 
 
+def never(snapshot: GameSnapshot, initial: GameSnapshot, phase: PhaseConfig) -> bool:
+    return False
+
+
 SUCCESS_CONDITIONS: dict[str, SuccessFn] = {
     "target_map": target_map,
     "target_position": target_position,
@@ -72,6 +76,7 @@ SUCCESS_CONDITIONS: dict[str, SuccessFn] = {
     "battle_started": battle_started,
     "badge_count": badge_count,
     "battle_won": battle_won,
+    "never": never,
 }
 
 

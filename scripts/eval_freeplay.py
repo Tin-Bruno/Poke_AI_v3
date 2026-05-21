@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 import time
 from pathlib import Path
@@ -60,6 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-steps", type=int, default=20_000)
     parser.add_argument("--stagnation-steps", type=int, default=4_000)
     parser.add_argument("--action-set", choices=("simple", "combo"), default="simple")
+    parser.add_argument("--observation-mode", choices=("coords", "ram", "multi"), default="multi")
     parser.add_argument("--legacy-observation", action="store_true")
     parser.add_argument("--visited-radius", type=int, default=12)
     parser.add_argument("--blocked-move-penalty", type=float, default=0.02)
@@ -68,6 +70,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--emulation-speed", type=float, default=None)
     parser.add_argument("--delay", type=float, default=0.0)
     parser.add_argument("--stochastic", action="store_true")
+    parser.add_argument("--trace-csv", default=None)
     args = parser.parse_args()
     if not args.rom:
         parser.error("informe --rom ou POKE_ROM_PATH no .env")
@@ -87,6 +90,7 @@ def main() -> None:
         max_steps=args.max_steps,
         stagnation_steps=args.stagnation_steps,
         action_set=args.action_set,
+        observation_mode=args.observation_mode,
         memory_observation=not args.legacy_observation,
         visited_radius=args.visited_radius,
         blocked_move_penalty=args.blocked_move_penalty,
@@ -110,6 +114,33 @@ def main() -> None:
         final_info = info
         total_reward = 0.0
         stop_reason = "limite de steps"
+        trace_file = None
+        trace_writer = None
+        if args.trace_csv:
+            trace_path = Path(args.trace_csv)
+            trace_path.parent.mkdir(parents=True, exist_ok=True)
+            trace_file = trace_path.open("w", newline="", encoding="utf-8")
+            trace_writer = csv.DictWriter(
+                trace_file,
+                fieldnames=(
+                    "step",
+                    "map_id",
+                    "x",
+                    "y",
+                    "reward",
+                    "action",
+                    "event_count",
+                    "party_count",
+                    "hp_fraction",
+                    "in_battle",
+                    "seen_maps",
+                    "seen_locations",
+                    "seen_coords",
+                    "battles_started",
+                    "battles_won",
+                ),
+            )
+            trace_writer.writeheader()
 
         for _ in range(args.steps):
             if should_stop_eval():
@@ -119,6 +150,8 @@ def main() -> None:
             obs, reward, terminated, truncated, info = env.step(int(action))
             total_reward += float(reward)
             final_info = info
+            if trace_writer:
+                trace_writer.writerow(trace_row(info, reward))
             if terminated or truncated:
                 stop_reason = "episodio encerrado"
                 break
@@ -127,6 +160,8 @@ def main() -> None:
                 break
 
         print_summary(final_info, total_reward, stop_reason)
+        if trace_file:
+            trace_file.close()
     finally:
         env.close()
 
@@ -143,8 +178,29 @@ def print_summary(info: dict, total_reward: float, stop_reason: str) -> None:
     print(f"Locais:      {int(info.get('seen_locations', 0))}")
     print(f"Coords:      {int(info.get('seen_coords', 0))}")
     print(f"Eventos:     {int(info.get('event_count', 0))}")
+    print(f"Batalhas:    {info.get('battles_started', 0)} iniciadas, {info.get('battles_won', 0)} vencidas")
     print(f"Party:       {info.get('party_count')} levels={info.get('party_levels')}")
     print("======================")
+
+
+def trace_row(info: dict, reward: float) -> dict:
+    return {
+        "step": info.get("step_count"),
+        "map_id": info.get("map_id"),
+        "x": info.get("x"),
+        "y": info.get("y"),
+        "reward": float(reward),
+        "action": info.get("action"),
+        "event_count": info.get("event_count"),
+        "party_count": info.get("party_count"),
+        "hp_fraction": info.get("hp_fraction"),
+        "in_battle": info.get("in_battle"),
+        "seen_maps": info.get("seen_maps", info.get("best_seen_maps")),
+        "seen_locations": info.get("seen_locations", info.get("best_seen_locations")),
+        "seen_coords": info.get("seen_coords"),
+        "battles_started": info.get("battles_started"),
+        "battles_won": info.get("battles_won"),
+    }
 
 
 if __name__ == "__main__":

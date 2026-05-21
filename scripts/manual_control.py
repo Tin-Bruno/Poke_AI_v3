@@ -59,7 +59,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fast-mode",
         action="store_true",
-        help="Le teclas sem Enter. No Git Bash, prefira o modo padrao com sequencias.",
+        help="Le teclas sem Enter. No terminal, prefira o modo padrao com sequencias.",
     )
     parser.add_argument(
         "--print-every",

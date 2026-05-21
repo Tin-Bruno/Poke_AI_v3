@@ -1,10 +1,17 @@
-COMANDOS GIT BASH - POKE_AI_V3
-================================
+COMANDOS UBUNTU - POKE_AI_V3
+============================
 
-1) Ativar o ambiente virtual
-----------------------------
+1) Preparar e ativar o ambiente virtual
+---------------------------------------
 
-source .venv/Scripts/activate
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git libsdl2-2.0-0
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+mkdir -p roms states models logs runs
 
 
 2) Validar o projeto
@@ -13,6 +20,8 @@ source .venv/Scripts/activate
 python -m unittest discover -s tests -v
 
 python -m py_compile project_config.py envs/pokemon_red_env.py envs/freeplay_env.py envs/step_handler.py envs/success_conditions.py memory/ram_map.py phases/phase_config.py rewards/base.py rewards/registry.py rewards/target_position_reward.py rewards/target_map_reward.py rewards/new_map_reward.py rewards/dialog_reward.py rewards/battle_reward.py rewards/waypoint_reward.py rewards/party_reward.py rewards/freeplay_reward.py scripts/train_phase.py scripts/eval_phase.py scripts/eval_sequence.py scripts/train_freeplay.py scripts/eval_freeplay.py scripts/test_env.py scripts/view_ram.py scripts/find_phase_path.py scripts/manual_control.py scripts/test_rom.py tests/test_env_config.py tests/test_rewards.py tests/test_success_conditions.py
+
+python -m py_compile scripts/benchmark_env.py scripts/summarize_trace.py
 
 
 Regra dos botoes nas fases:
@@ -103,7 +112,7 @@ python scripts/find_phase_path.py --phase phase2 --max-depth 80
 
 Os comandos de cada phase ficam no arquivo:
 
-PHASES_GITBASH.txt
+PHASES_UBUNTU.txt
 
 
 9) Treinar mais rapido com varios PyBoys
@@ -129,20 +138,26 @@ python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coo
 
 Treinar freeplay a partir desse state:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
+
+Treino freeplay mais leve, sem tela na observacao:
+
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
 
 O freeplay novo usa por padrao a abordagem inspirada no PokemonRedExperiments v2:
 
+--observation-mode multi
 --action-set simple
 --visited-radius 12
 --blocked-move-penalty 0.02
 --same-coord-stuck-steps 600
 
-Isso reduz o caso ruim de ficar segurando left+b parado na parede.
+O action set simples usa noop, movimentos, A e B. START fica fora por padrao para
+reduzir menus acidentais no comeco do freeplay.
 
 Teste curto, caso ainda queira usar o state da phase9:
 
-python scripts/train_freeplay.py --state states/phase9_start.state --timesteps 200000 --n-envs 2 --vec-env subproc --start-method spawn --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/phase9_start.state --timesteps 200000 --n-envs 2 --vec-env subproc --start-method forkserver --stagnation-steps 1200
 
 Assistir freeplay:
 
@@ -151,6 +166,14 @@ python scripts/eval_freeplay.py --state states/freeplay_start.state --model mode
 Assistir o freeplay com exploracao estocastica:
 
 python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --stochastic
+
+Assistir e salvar trace CSV:
+
+python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.05 --stochastic --trace-csv logs/freeplay_trace.csv
+
+Resumir trace CSV:
+
+python scripts/summarize_trace.py logs/freeplay_trace.csv
 
 Avaliar o modelo antigo, treinado antes da memoria de exploracao:
 
@@ -252,13 +275,25 @@ Use --resume somente com modelo que tenha a mesma configuracao de observacao/aco
 Modelo antigo do freeplay precisa de --action-set combo --legacy-observation.
 
 --action-set simple
-Usa somente down, left, right, up, A, B e START no freeplay. E o padrao novo.
+Usa noop, movimentos, A e B no freeplay. E o padrao novo.
 
 --action-set combo
 Usa o conjunto antigo com noop, select e combinacoes movimento+A/B.
 
 --legacy-observation
 Desliga a memoria de exploracao no freeplay para carregar modelos antigos.
+
+--observation-mode coords
+No freeplay, usa apenas [map_id, x, y]. Mais rapido, mas com pouca informacao.
+
+--observation-mode ram
+No freeplay, usa o vetor de RAM com posicao, eventos, party, HP e batalha.
+
+--observation-mode multi
+No freeplay, usa tela, RAM, memoria local de exploracao e acoes recentes.
+
+--trace-csv
+No eval_freeplay, salva um CSV com step, map/x/y, reward, acao, eventos e batalhas.
 
 --visited-radius
 Tamanho da memoria local de coordenadas visitadas que entra na observacao do freeplay.

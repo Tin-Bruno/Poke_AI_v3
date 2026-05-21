@@ -21,8 +21,10 @@ class FreeplayRewardBreakdown:
     badges: float = 0.0
     party: float = 0.0
     survival: float = 0.0
+    battle: float = 0.0
     repeat_penalty: float = 0.0
     stuck_penalty: float = 0.0
+    faint_penalty: float = 0.0
     step_penalty: float = 0.0
 
     @property
@@ -35,8 +37,10 @@ class FreeplayRewardBreakdown:
             + self.badges
             + self.party
             + self.survival
+            + self.battle
             + self.repeat_penalty
             + self.stuck_penalty
+            + self.faint_penalty
             + self.step_penalty
         )
 
@@ -52,6 +56,7 @@ class FreeplayRewardBreakdown:
                 self.badges,
                 self.party,
                 self.survival,
+                self.battle,
             )
         )
 
@@ -64,8 +69,10 @@ class FreeplayRewardBreakdown:
             "reward_badges": self.badges,
             "reward_party": self.party,
             "reward_survival": self.survival,
+            "reward_battle": self.battle,
             "reward_repeat_penalty": self.repeat_penalty,
             "reward_stuck_penalty": self.stuck_penalty,
+            "reward_faint_penalty": self.faint_penalty,
             "reward_step_penalty": self.step_penalty,
         }
 
@@ -82,6 +89,9 @@ class FreeplayReward:
         badge_weight: float = 10.0,
         party_weight: float = 0.05,
         survival_weight: float = 0.03,
+        battle_win_reward: float = 2.0,
+        battle_step_penalty: float = 0.002,
+        faint_penalty: float = 2.0,
         repeat_penalty: float = 0.002,
         same_coord_limit: int = 600,
         same_coord_penalty: float = 0.05,
@@ -94,6 +104,9 @@ class FreeplayReward:
         self.badge_weight = badge_weight
         self.party_weight = party_weight
         self.survival_weight = survival_weight
+        self.battle_win_reward = battle_win_reward
+        self.battle_step_penalty = battle_step_penalty
+        self.faint_penalty = faint_penalty
         self.repeat_penalty = repeat_penalty
         self.same_coord_limit = same_coord_limit
         self.same_coord_penalty = same_coord_penalty
@@ -153,6 +166,12 @@ class FreeplayReward:
         breakdown.badges += badge_delta * self.badge_weight
         breakdown.party += party_delta * self.party_weight
         breakdown.survival += hp_delta * self.survival_weight
+        if previous.in_battle and not snapshot.in_battle and snapshot.party_count > 0 and snapshot.hp_fraction > 0:
+            breakdown.battle += self.battle_win_reward
+        if snapshot.in_battle and party_delta == 0 and event_delta == 0:
+            breakdown.repeat_penalty -= self.battle_step_penalty
+        if previous.hp_fraction > 0 and snapshot.party_count > 0 and snapshot.hp_fraction <= 0:
+            breakdown.faint_penalty -= self.faint_penalty
 
         if party_delta > 0:
             self.best_known_party_level_total = known_party_level_total

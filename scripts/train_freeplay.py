@@ -63,8 +63,10 @@ class FreeplayStatsCallback(BaseCallback):
                 "reward_badges",
                 "reward_party",
                 "reward_survival",
+                "reward_battle",
                 "reward_repeat_penalty",
                 "reward_stuck_penalty",
+                "reward_faint_penalty",
                 "reward_blocked_move_penalty",
                 "reward_step_penalty",
                 "reward_coord",
@@ -73,6 +75,12 @@ class FreeplayStatsCallback(BaseCallback):
                 "seen_maps",
                 "coord_visit_count",
                 "steps_since_progress",
+                "best_seen_maps",
+                "best_seen_locations",
+                "best_event_count",
+                "best_party_level_total",
+                "battles_started",
+                "battles_won",
             ):
                 if key in info:
                     self.logger.record(f"freeplay/{key}", info[key])
@@ -80,6 +88,33 @@ class FreeplayStatsCallback(BaseCallback):
                 if key in info:
                     self.logger.record(f"ram/{key}", info[key])
         return True
+
+
+class SaveBestFreeplayCallback(BaseCallback):
+    def __init__(self, save_dir: str | Path) -> None:
+        super().__init__()
+        self.save_dir = Path(save_dir)
+        self.best_score = -1.0
+
+    def _on_training_start(self) -> None:
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        for info in self.locals.get("infos", []):
+            score = self._score(info)
+            if score > self.best_score:
+                self.best_score = score
+                self.model.save(str(self.save_dir / "pokemon_red_freeplay_best.zip"))
+        return True
+
+    def _score(self, info: dict) -> float:
+        return (
+            float(info.get("best_seen_maps", 0)) * 1000.0
+            + float(info.get("best_event_count", 0)) * 10.0
+            + float(info.get("battles_won", 0)) * 50.0
+            + float(info.get("best_party_level_total", 0)) * 2.0
+            + float(info.get("best_seen_locations", 0))
+        )
 
 
 def interrupted_model_path(save_path: str | Path) -> Path:
@@ -100,13 +135,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timesteps", type=int, default=1_000_000)
     parser.add_argument("--n-envs", type=int, default=1)
     parser.add_argument("--vec-env", choices=("dummy", "subproc"), default="dummy")
-    parser.add_argument("--start-method", choices=("spawn", "forkserver", "fork"), default="spawn")
+    parser.add_argument("--start-method", choices=("spawn", "forkserver", "fork"), default="forkserver")
     parser.add_argument("--action-frames", type=int, default=24)
     parser.add_argument("--release-frames", type=int, default=6)
     parser.add_argument("--warmup-frames", type=int, default=0)
     parser.add_argument("--max-steps", type=int, default=20_000)
     parser.add_argument("--stagnation-steps", type=int, default=4_000)
     parser.add_argument("--action-set", choices=("simple", "combo"), default="simple")
+    parser.add_argument("--observation-mode", choices=("coords", "ram", "multi"), default="multi")
     parser.add_argument("--legacy-observation", action="store_true")
     parser.add_argument("--visited-radius", type=int, default=12)
     parser.add_argument("--blocked-move-penalty", type=float, default=0.02)
@@ -123,6 +159,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--clip-range", type=float, default=0.15)
     parser.add_argument("--resume", default=None)
     parser.add_argument("--save-path", default="models/pokemon_red_freeplay.zip")
+    parser.add_argument("--best-model-dir", default="models")
     parser.add_argument("--checkpoint-dir", default=runs_dir / "freeplay_checkpoints")
     parser.add_argument("--tensorboard-dir", default=runs_dir / "tensorboard")
     parser.add_argument("--stop-key-check-freq", type=int, default=env_int("POKE_STOP_KEY_CHECK_FREQ", 500))
@@ -153,6 +190,7 @@ def main() -> None:
             max_steps=args.max_steps,
             stagnation_steps=args.stagnation_steps,
             action_set=args.action_set,
+            observation_mode=args.observation_mode,
             memory_observation=not args.legacy_observation,
             visited_radius=args.visited_radius,
             blocked_move_penalty=args.blocked_move_penalty,
@@ -178,6 +216,7 @@ def main() -> None:
                 name_prefix="pokemon_red_freeplay",
             ),
             FreeplayStatsCallback(),
+            SaveBestFreeplayCallback(args.best_model_dir),
             stop_callback,
         ]
     )
@@ -193,8 +232,9 @@ def main() -> None:
                 "Para usar a logica nova, treine sem --resume."
             ) from exc
     else:
+        policy = "MultiInputPolicy" if args.observation_mode == "multi" else "MlpPolicy"
         model = PPO(
-            "MultiInputPolicy",
+            policy,
             env,
             verbose=1,
             n_steps=args.n_steps,

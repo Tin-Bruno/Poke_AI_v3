@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from envs.success_conditions import target_position_after_event_count
+from envs.success_conditions import never, target_position_after_event_count
 from memory.ram_map import GameSnapshot
 from phases.phase_config import PhaseConfig
 
@@ -39,6 +39,19 @@ class SuccessConditionsTest(unittest.TestCase):
         self.assertFalse(target_position_after_event_count(snap(event_count=3), snap(), phase))
         self.assertFalse(target_position_after_event_count(snap(y=4, event_count=4), snap(), phase))
         self.assertTrue(target_position_after_event_count(snap(event_count=4), snap(), phase))
+
+    def test_never_success_condition_does_not_end_freeplay(self) -> None:
+        phase = PhaseConfig(
+            id="freeplay",
+            name="Freeplay",
+            state="freeplay.state",
+            model="models/freeplay.zip",
+            max_steps=10,
+            rewards=(),
+            success="never",
+        )
+
+        self.assertFalse(never(snap(), snap(), phase))
 
 
 if __name__ == "__main__":

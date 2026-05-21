@@ -42,6 +42,17 @@ class EnvConfigTest(unittest.TestCase):
         self.assertEqual(env.observation_space["recent_actions"].shape, (21,))
         self.assertEqual(env.action_space.n, 7)
 
+    def test_freeplay_can_use_lightweight_observations(self) -> None:
+        coords_env = FreeplayPokemonRedEnv(
+            FreeplayConfig(rom_path="missing.gb", observation_mode="coords")
+        )
+        ram_env = FreeplayPokemonRedEnv(FreeplayConfig(rom_path="missing.gb", observation_mode="ram"))
+
+        self.assertEqual(coords_env.observation_space.shape, (3,))
+        self.assertEqual(coords_env.observation_space.dtype.name, "uint8")
+        self.assertEqual(ram_env.observation_space.shape, (23,))
+        self.assertEqual(ram_env.observation_space.dtype.name, "float32")
+
     def test_freeplay_legacy_observation_can_use_combo_actions(self) -> None:
         env = FreeplayPokemonRedEnv(
             FreeplayConfig(
