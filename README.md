@@ -279,7 +279,7 @@ python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coo
 Treino leve, usando apenas RAM:
 
 ```bash
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --unproductive-button-penalty 0.003 --unproductive-noop-penalty 0.001
 ```
 
 Treino completo, com tela, RAM, memoria local de exploracao e acoes recentes:
@@ -300,6 +300,10 @@ Medir velocidade do ambiente:
 ```bash
 python scripts/benchmark_env.py --mode freeplay --state states/freeplay_start.state --observation-mode ram --steps 10000
 ```
+
+No freeplay, `A/B/noop` recebem uma penalidade pequena quando nao geram progresso
+e o agente nao esta em batalha nem em dialogo detectavel na tela. Isso reduz
+politicas que ficam paradas apertando botao sem andar.
 
 ## Onde Vamos Comecar
 

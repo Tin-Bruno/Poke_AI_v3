@@ -150,10 +150,15 @@ O freeplay novo usa por padrao a abordagem inspirada no PokemonRedExperiments v2
 --action-set simple
 --visited-radius 12
 --blocked-move-penalty 0.02
+--unproductive-button-penalty 0.003
+--unproductive-noop-penalty 0.001
 --same-coord-stuck-steps 600
 
 O action set simples usa noop, movimentos, A e B. START fica fora por padrao para
 reduzir menus acidentais no comeco do freeplay.
+Quando A/B/noop nao geram progresso e o agente nao esta em batalha nem em dialogo
+detectavel na tela, o freeplay aplica uma penalidade pequena para evitar politicas
+paradas apertando botao.
 
 Teste curto, caso ainda queira usar o state da phase9:
 
@@ -300,6 +305,12 @@ Tamanho da memoria local de coordenadas visitadas que entra na observacao do fre
 
 --blocked-move-penalty
 Penalidade quando uma acao de movimento nao muda map/x/y.
+
+--unproductive-button-penalty
+Penalidade pequena para A/B/START/SELECT quando nao geram progresso no freeplay.
+
+--unproductive-noop-penalty
+Penalidade pequena para noop quando nao gera progresso no freeplay.
 
 --same-coord-stuck-steps
 Depois dessa quantidade de visitas na mesma coordenada, aplica penalidade de travamento.

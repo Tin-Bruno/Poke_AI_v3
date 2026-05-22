@@ -49,6 +49,7 @@ FREEPLAY_ACTION_SETS = {
     "combo": FREEPLAY_COMBO_ACTIONS,
 }
 RECENT_ACTIONS = 3
+MOVEMENT_BUTTONS = {"up", "down", "left", "right"}
 
 
 @dataclass(frozen=True)
@@ -354,7 +355,7 @@ class FreeplayPokemonRedEnv(gym.Env):
             return 0.0
         if before.in_battle or after.in_battle:
             return 0.0
-        if not any(button in {"up", "down", "left", "right"} for button in combo):
+        if not any(button in MOVEMENT_BUTTONS for button in combo):
             return 0.0
         before_pos = (before.map_id, before.x, before.y)
         after_pos = (after.map_id, after.x, after.y)

@@ -362,6 +362,10 @@ Treino leve com RAM:
 
 python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
 
+Se o agente estiver usando A/B/noop demais, use os pesos padrao novos:
+
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200 --unproductive-button-penalty 0.003 --unproductive-noop-penalty 0.001
+
 Assistir:
 
 python scripts/eval_freeplay.py --state states/freeplay_start.state --model models/pokemon_red_freeplay.zip --window SDL2 --delay 0.1
