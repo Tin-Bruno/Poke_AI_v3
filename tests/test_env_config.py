@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from envs import FreeplayConfig, FreeplayPokemonRedEnv, PokemonRedEnv
+from memory.ram_map import GameSnapshot
 from phases import get_phase
 from phases.phase_config import (
     DIALOG_ACTIONS,
@@ -13,6 +14,19 @@ from phases.phase_config import (
 
 
 class EnvConfigTest(unittest.TestCase):
+    def snap(self, in_battle: bool = False) -> GameSnapshot:
+        return GameSnapshot(
+            map_id=12,
+            x=10,
+            y=35,
+            badges=0,
+            party_count=1,
+            party_levels=(6,),
+            hp_fraction=1.0,
+            in_battle=in_battle,
+            event_count=6,
+        )
+
     def test_coords_observation_uses_mlp_friendly_space(self) -> None:
         env = PokemonRedEnv(
             rom_path="missing.gb",
