@@ -55,7 +55,7 @@ MOVEMENT_BUTTONS = {"up", "down", "left", "right"}
 @dataclass(frozen=True)
 class FreeplayConfig:
     rom_path: str | Path
-    state_path: str | Path | None = "states/phase9_start.state"
+    state_path: str | Path | None = "states/freeplay_start.state"
     symbols_path: str | Path | None = None
     window: str = "null"
     action_frames: int = 24

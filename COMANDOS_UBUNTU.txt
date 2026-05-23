@@ -1,17 +1,26 @@
-COMANDOS UBUNTU - POKE_AI_V3
-============================
+COMANDOS GIT BASH - POKE_AI_V3
+==============================
 
 1) Preparar e ativar o ambiente virtual
 ---------------------------------------
 
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip git libsdl2-2.0-0
+Abra o Git Bash na pasta do projeto:
 
-python3 -m venv .venv
-source .venv/bin/activate
+cd "/c/Users/bruno/OneDrive/Documentos/Poke_AI_v3"
+
+Crie e ative o ambiente virtual no Windows/Git Bash:
+
+py -3.11 -m venv .venv
+source .venv/Scripts/activate
+python --version
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 mkdir -p roms states models logs runs
+
+Depois de ativar o ambiente, todos os comandos abaixo usam `python`.
+Se abrir um Git Bash novo, ative de novo com:
+
+source .venv/Scripts/activate
 
 
 2) Validar o projeto
@@ -138,11 +147,11 @@ python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coo
 
 Treinar freeplay a partir desse state:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
 
 Treino freeplay mais leve, sem tela na observacao:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
 
 O freeplay novo usa por padrao a abordagem inspirada no PokemonRedExperiments v2:
 
@@ -150,19 +159,18 @@ O freeplay novo usa por padrao a abordagem inspirada no PokemonRedExperiments v2
 --action-set simple
 --visited-radius 12
 --blocked-move-penalty 0.02
---unproductive-button-penalty 0.003
---unproductive-noop-penalty 0.001
 --same-coord-stuck-steps 600
 
 O action set simples usa noop, movimentos, A e B. START fica fora por padrao para
 reduzir menus acidentais no comeco do freeplay.
-Quando A/B/noop nao geram progresso e o agente nao esta em batalha nem em dialogo
-detectavel na tela, o freeplay aplica uma penalidade pequena para evitar politicas
-paradas apertando botao.
+Quando uma acao de movimento nao muda map/x/y, o freeplay aplica
+--blocked-move-penalty. Quando o agente visita a mesma coordenada muitas vezes,
+usa --same-coord-stuck-steps e --same-coord-stuck-penalty para reduzir politicas
+travadas.
 
 Teste curto, caso ainda queira usar o state da phase9:
 
-python scripts/train_freeplay.py --state states/phase9_start.state --timesteps 200000 --n-envs 2 --vec-env subproc --start-method forkserver --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/phase9_start.state --timesteps 200000 --n-envs 2 --vec-env subproc --start-method spawn --stagnation-steps 1200
 
 Assistir freeplay:
 
@@ -305,12 +313,6 @@ Tamanho da memoria local de coordenadas visitadas que entra na observacao do fre
 
 --blocked-move-penalty
 Penalidade quando uma acao de movimento nao muda map/x/y.
-
---unproductive-button-penalty
-Penalidade pequena para A/B/START/SELECT quando nao geram progresso no freeplay.
-
---unproductive-noop-penalty
-Penalidade pequena para noop quando nao gera progresso no freeplay.
 
 --same-coord-stuck-steps
 Depois dessa quantidade de visitas na mesma coordenada, aplica penalidade de travamento.

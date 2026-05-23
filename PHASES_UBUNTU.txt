@@ -1,5 +1,5 @@
-PHASES UBUNTU - POKE_AI_V3
-==========================
+PHASES GIT BASH - POKE_AI_V3
+============================
 
 Use este arquivo para o roteiro especifico de cada phase.
 Os argumentos e comandos gerais ficam em COMANDOS_UBUNTU.txt.
@@ -356,15 +356,15 @@ acoes e simples para evitar colapsos como left+b parado na parede.
 
 Treinar:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
 
 Treino leve com RAM:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
 
-Se o agente estiver usando A/B/noop demais, use os pesos padrao novos:
+Se o agente ficar travado, aumente a penalidade de coordenada repetida:
 
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --stagnation-steps 1200 --unproductive-button-penalty 0.003 --unproductive-noop-penalty 0.001
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200 --same-coord-stuck-steps 300 --same-coord-stuck-penalty 0.08
 
 Assistir:
 

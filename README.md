@@ -24,20 +24,19 @@ runs/        checkpoints e TensorBoard
 A regra principal: o ambiente nao sabe a logica de cada fase. Ele executa o jogo,
 le RAM, aplica a acao e chama a configuracao da fase atual.
 
-## Setup no Ubuntu
+## Setup no Windows com Git Bash
 
-Instale os pacotes de sistema:
+Abra o Git Bash na pasta do projeto:
 
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip git libsdl2-2.0-0
+cd "/c/Users/bruno/OneDrive/Documentos/Poke_AI_v3"
 ```
 
 Crie e ative o ambiente virtual:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+py -3.11 -m venv .venv
+source .venv/Scripts/activate
 python --version
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
@@ -53,20 +52,16 @@ Se o ambiente ja existe com a versao errada:
 ```bash
 deactivate
 rm -rf .venv
-python3 -m venv .venv
-source .venv/bin/activate
+py -3.11 -m venv .venv
+source .venv/Scripts/activate
 python --version
 python -m pip install -r requirements.txt
 ```
 
-Se seu Ubuntu tiver `python` apontando para a versao correta, tambem funciona:
+Depois de abrir um Git Bash novo, ative novamente:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-mkdir -p roms states models logs runs
+source .venv/Scripts/activate
 ```
 
 Coloque sua ROM em:
@@ -78,10 +73,10 @@ roms/pokemon_red.gb
 ## Versao do PyBoy
 
 O projeto fixa `pyboy==2.6.0` porque a versao `2.7.1` pode causar bug visual em
-dialogos. Se o seu ambiente foi criado antes dessa correcao, atualize no Ubuntu:
+dialogos. Se o seu ambiente foi criado antes dessa correcao, atualize no Git Bash:
 
 ```bash
-source .venv/bin/activate
+source .venv/Scripts/activate
 python -m pip install --upgrade pyboy==2.6.0
 python -m pip show pyboy
 ```
@@ -147,7 +142,8 @@ phase5  passar dialogo inicial do laboratorio
 phase5b ir ate a frente da Pokebola
 phase5c escolher starter
 phase6  passar dialogo do rival
-phase7  vencer primeira batalha
+phase7  iniciar batalha do rival
+phase7b vencer primeira batalha
 phase8  passar dialogo pos-batalha
 phase8b sair do laboratorio
 phase9  ir para Rota 1
@@ -204,7 +200,7 @@ ddddww
 5d
 ```
 
-No terminal do Ubuntu, esse modo costuma ser melhor que captura de tecla unica,
+No terminal do Git Bash, esse modo costuma ser melhor que captura de tecla unica,
 porque evita fila gigante de tecla repetida no terminal.
 
 Para dialogos, prefira `talk` em vez de `10k`, porque ele espera mais entre cada B.
@@ -279,13 +275,13 @@ python scripts/eval_phase.py --phase phase9 --window SDL2 --observation-mode coo
 Treino leve, usando apenas RAM:
 
 ```bash
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method forkserver --unproductive-button-penalty 0.003 --unproductive-noop-penalty 0.001
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 200000 --observation-mode ram --n-envs 4 --vec-env subproc --start-method spawn --stagnation-steps 1200
 ```
 
 Treino completo, com tela, RAM, memoria local de exploracao e acoes recentes:
 
 ```bash
-python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method forkserver
+python scripts/train_freeplay.py --state states/freeplay_start.state --timesteps 1000000 --observation-mode multi --n-envs 4 --vec-env subproc --start-method spawn
 ```
 
 Avaliar e gravar um trace CSV:
@@ -301,9 +297,9 @@ Medir velocidade do ambiente:
 python scripts/benchmark_env.py --mode freeplay --state states/freeplay_start.state --observation-mode ram --steps 10000
 ```
 
-No freeplay, `A/B/noop` recebem uma penalidade pequena quando nao geram progresso
-e o agente nao esta em batalha nem em dialogo detectavel na tela. Isso reduz
-politicas que ficam paradas apertando botao sem andar.
+No freeplay, movimentos bloqueados recebem `--blocked-move-penalty`. Repeticao
+excessiva da mesma coordenada recebe penalidade por `--same-coord-stuck-steps` e
+`--same-coord-stuck-penalty`, reduzindo politicas que ficam travadas.
 
 ## Onde Vamos Comecar
 

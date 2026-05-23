@@ -129,13 +129,17 @@ def parse_args() -> argparse.Namespace:
     runs_dir = Path(env_str("POKE_RUNS_DIR", "runs"))
     parser = argparse.ArgumentParser(description="Treina modo freeplay sem curriculo por fases.")
     parser.add_argument("--rom", default=env_str("POKE_ROM_PATH"))
-    parser.add_argument("--state", default="states/phase9_start.state")
+    parser.add_argument("--state", default=env_str("POKE_FREEPLAY_STATE", "states/freeplay_start.state"))
     parser.add_argument("--symbols", default=env_str("POKE_SYMBOLS_PATH"))
     parser.add_argument("--window", choices=("null", "SDL2"), default="null")
     parser.add_argument("--timesteps", type=int, default=1_000_000)
     parser.add_argument("--n-envs", type=int, default=1)
     parser.add_argument("--vec-env", choices=("dummy", "subproc"), default="dummy")
-    parser.add_argument("--start-method", choices=("spawn", "forkserver", "fork"), default="forkserver")
+    parser.add_argument(
+        "--start-method",
+        choices=("spawn", "forkserver", "fork"),
+        default=env_str("POKE_FREEPLAY_START_METHOD", "spawn"),
+    )
     parser.add_argument("--action-frames", type=int, default=24)
     parser.add_argument("--release-frames", type=int, default=6)
     parser.add_argument("--warmup-frames", type=int, default=0)

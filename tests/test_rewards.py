@@ -99,6 +99,30 @@ class PhaseRewardTest(unittest.TestCase):
         self.assertGreater(result.value, 0)
         self.assertTrue(result.progress)
 
+    def test_target_position_success_reward_only_once(self) -> None:
+        phase = PhaseConfig(
+            id="test",
+            name="Teste posicao",
+            state="test.state",
+            model="models/test.zip",
+            max_steps=10,
+            rewards=("target_position",),
+            success="target_position",
+            target_map=1,
+            target_x=5,
+            target_y=5,
+        )
+        reward = TargetPositionReward(closer_reward=0.1, success_reward=5.0)
+        reward.reset(snap(x=4, y=5), phase)
+
+        first = reward.step(snap(x=5, y=5), phase)
+        repeated = reward.step(snap(x=5, y=5), phase)
+
+        self.assertGreaterEqual(first.value, 5.0)
+        self.assertTrue(first.progress)
+        self.assertEqual(repeated.value, 0.0)
+        self.assertFalse(repeated.progress)
+
     def test_waypoint_reward_advances_to_next_point(self) -> None:
         phase = PhaseConfig(
             id="test",

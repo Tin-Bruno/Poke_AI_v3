@@ -12,9 +12,11 @@ class TargetPositionReward(RewardComponent):
         self.closer_reward = closer_reward
         self.success_reward = success_reward
         self.best_distance: int | None = None
+        self.success_rewarded = False
 
     def reset(self, snapshot: GameSnapshot, phase: PhaseConfig) -> None:
         self.best_distance = self._distance(snapshot, phase)
+        self.success_rewarded = False
 
     def step(self, snapshot: GameSnapshot, phase: PhaseConfig) -> RewardResult:
         distance = self._distance(snapshot, phase)
@@ -28,8 +30,9 @@ class TargetPositionReward(RewardComponent):
             self.best_distance = distance
             progress = True
 
-        if distance <= phase.target_radius:
+        if distance <= phase.target_radius and not self.success_rewarded:
             reward += self.success_reward
+            self.success_rewarded = True
             progress = True
 
         return RewardResult(reward, progress, {"target_position": reward})

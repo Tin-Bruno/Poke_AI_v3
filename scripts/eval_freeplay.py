@@ -17,6 +17,51 @@ from project_config import env_str, load_dotenv
 from rewards.freeplay_reward import FreeplayReward
 
 
+REWARD_TRACE_FIELDS = (
+    "reward_coord",
+    "reward_location",
+    "reward_map",
+    "reward_events",
+    "reward_badges",
+    "reward_party",
+    "reward_survival",
+    "reward_battle",
+    "reward_repeat_penalty",
+    "reward_stuck_penalty",
+    "reward_faint_penalty",
+    "reward_step_penalty",
+    "reward_blocked_move_penalty",
+)
+
+TRACE_FIELDNAMES = (
+    "step",
+    "map_id",
+    "x",
+    "y",
+    "reward",
+    "action",
+    "event_count",
+    "party_count",
+    "party_levels",
+    "hp_fraction",
+    "in_battle",
+    "seen_maps",
+    "seen_locations",
+    "seen_coords",
+    "coord_visit_count",
+    "steps_since_progress",
+    "freeplay_progress",
+    "battles_started",
+    "battles_won",
+    "best_seen_maps",
+    "best_seen_locations",
+    "best_event_count",
+    "best_party_level_total",
+    "blocked_move_penalty",
+    *REWARD_TRACE_FIELDS,
+)
+
+
 def should_stop_eval() -> bool:
     try:
         import msvcrt
@@ -50,7 +95,7 @@ def parse_args() -> argparse.Namespace:
     load_dotenv()
     parser = argparse.ArgumentParser(description="Avalia um modelo freeplay.")
     parser.add_argument("--rom", default=env_str("POKE_ROM_PATH"))
-    parser.add_argument("--state", default="states/phase9_start.state")
+    parser.add_argument("--state", default=env_str("POKE_FREEPLAY_STATE", "states/freeplay_start.state"))
     parser.add_argument("--symbols", default=env_str("POKE_SYMBOLS_PATH"))
     parser.add_argument("--model", default="models/pokemon_red_freeplay.zip")
     parser.add_argument("--window", choices=("null", "SDL2"), default="SDL2")
@@ -101,6 +146,7 @@ def main() -> None:
         same_coord_penalty=args.same_coord_stuck_penalty,
     )
     env = FreeplayPokemonRedEnv(config, reward_model=reward_model)
+    trace_file = None
     try:
         model = PPO.load(args.model)
         if model.action_space != env.action_space or model.observation_space != env.observation_space:
@@ -114,32 +160,12 @@ def main() -> None:
         final_info = info
         total_reward = 0.0
         stop_reason = "limite de steps"
-        trace_file = None
         trace_writer = None
         if args.trace_csv:
             trace_path = Path(args.trace_csv)
             trace_path.parent.mkdir(parents=True, exist_ok=True)
             trace_file = trace_path.open("w", newline="", encoding="utf-8")
-            trace_writer = csv.DictWriter(
-                trace_file,
-                fieldnames=(
-                    "step",
-                    "map_id",
-                    "x",
-                    "y",
-                    "reward",
-                    "action",
-                    "event_count",
-                    "party_count",
-                    "hp_fraction",
-                    "in_battle",
-                    "seen_maps",
-                    "seen_locations",
-                    "seen_coords",
-                    "battles_started",
-                    "battles_won",
-                ),
-            )
+            trace_writer = csv.DictWriter(trace_file, fieldnames=TRACE_FIELDNAMES)
             trace_writer.writeheader()
 
         for _ in range(args.steps):
@@ -160,9 +186,9 @@ def main() -> None:
                 break
 
         print_summary(final_info, total_reward, stop_reason)
+    finally:
         if trace_file:
             trace_file.close()
-    finally:
         env.close()
 
 
@@ -184,7 +210,7 @@ def print_summary(info: dict, total_reward: float, stop_reason: str) -> None:
 
 
 def trace_row(info: dict, reward: float) -> dict:
-    return {
+    row = {
         "step": info.get("step_count"),
         "map_id": info.get("map_id"),
         "x": info.get("x"),
@@ -193,14 +219,25 @@ def trace_row(info: dict, reward: float) -> dict:
         "action": info.get("action"),
         "event_count": info.get("event_count"),
         "party_count": info.get("party_count"),
+        "party_levels": info.get("party_levels"),
         "hp_fraction": info.get("hp_fraction"),
         "in_battle": info.get("in_battle"),
         "seen_maps": info.get("seen_maps", info.get("best_seen_maps")),
         "seen_locations": info.get("seen_locations", info.get("best_seen_locations")),
         "seen_coords": info.get("seen_coords"),
+        "coord_visit_count": info.get("coord_visit_count"),
+        "steps_since_progress": info.get("steps_since_progress"),
+        "freeplay_progress": info.get("freeplay_progress"),
         "battles_started": info.get("battles_started"),
         "battles_won": info.get("battles_won"),
+        "best_seen_maps": info.get("best_seen_maps"),
+        "best_seen_locations": info.get("best_seen_locations"),
+        "best_event_count": info.get("best_event_count"),
+        "best_party_level_total": info.get("best_party_level_total"),
+        "blocked_move_penalty": info.get("blocked_move_penalty"),
     }
+    row.update({field: info.get(field, 0.0) for field in REWARD_TRACE_FIELDS})
+    return row
 
 
 if __name__ == "__main__":
